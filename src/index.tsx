@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+
+// Imports dinâmicos
 import auth from './server/routes/auth'
 import profiles from './server/routes/profiles'
 import payment from './server/routes/payment'
@@ -19,7 +21,7 @@ const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 
 app.use('/*', cors())
 
-app.get('/health', (c) => c.json({ status: 'ok', msg: 'API Only Mode' }))
+app.get('/health', (c) => c.json({ status: 'ok', version: 'v60' }))
 
 app.route('/auth', auth)
 app.route('/profiles', profiles)
