@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #fdf2f8;
+  --color-primary-100: #fce7f3;
+  --color-primary-200: #fbcfe8;
+  --color-primary-300: #f9a8d4;
+  --color-primary-400: #f472b6;
+  --color-primary-500: #ec4899;
+  --color-primary-600: #db2777;
+  --color-primary-700: #be185d;
+  --color-primary-800: #9d174d;
+  --color-primary-900: #831843;
+  --color-primary-950: #500724;
+
+  --color-dark-900: #09090b;
+  --color-dark-800: #121214;
+  --color-dark-700: #18181b;
+  --color-dark-600: #27272a;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+  .h-dvh {
+    height: 100dvh;
+  }
+}
+
+:root {
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-dark-900 text-gray-100 antialiased;
+  -webkit-font-smoothing: antialiased; 
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scroll suave para landing page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevenir zoom em inputs no iOS */
+input, select, textarea {
+  font-size: 16px !important; 
+}
