@@ -1,1 +1,7 @@
+# API requests go to Functions (Cloudflare handles this automatically, but explicit is good)
+/api/*  /api/:splat  200
+
+# SPA Fallback - Serve index.html for everything else that is NOT a file
+# The previous rule caused a loop because it matched index.html itself.
+# Cloudflare Pages is smart enough to serve existing files first.
 /*  /index.html  200

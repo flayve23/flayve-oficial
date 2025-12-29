@@ -74,4 +74,4 @@ app.get('/health', (c) => c.json({
   engine: 'Cloudflare Functions'
 }))
 
-export default handle(app)
+export const onRequest = handle(app)
