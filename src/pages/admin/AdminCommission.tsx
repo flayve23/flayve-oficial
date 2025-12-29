@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '@/services/api.ts';
+import api from '../../services/api.ts';
 import { Loader2, DollarSign, Save } from 'lucide-react';
 
 export default function AdminCommission() {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../lib/api';
+import api from '../../services/api.ts';
 import { DollarSign, Video, Users, TrendingUp, Power, Tag } from 'lucide-react';
 
 export default function StreamerDashboard() {

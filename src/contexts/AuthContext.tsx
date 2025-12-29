@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '@/services/api.ts';
+import api from '../services/api.ts';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface User {

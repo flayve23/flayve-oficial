@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import api from '@/services/api.ts';
+import api from '../../services/api.ts';
 import { Loader2, Lock } from 'lucide-react';
 
 export default function ResetPassword() {

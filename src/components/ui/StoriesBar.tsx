@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import api from '@/services/api.ts';
+import api from '../../services/api.ts';
 import { Plus, X } from 'lucide-react';
 import ImageUpload from '../ui/ImageUpload';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function StoriesBar() {
   const { user } = useAuth();

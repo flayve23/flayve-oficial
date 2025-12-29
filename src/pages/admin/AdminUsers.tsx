@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import api from '../../lib/api';
-import { Loader2, Search, UserCog, Shield, Ban } from 'lucide-react';
+import api from '../../services/api.ts';
+import { Loader2, Search, UserCog, Shield, Ban, Video } from 'lucide-react';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<any[]>([]);

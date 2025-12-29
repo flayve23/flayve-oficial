@@ -14,8 +14,8 @@ import ViewerDashboard from './pages/dashboard/ViewerDashboard';
 import ViewerWallet from './pages/dashboard/ViewerWallet';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminLiveOps from './pages/admin/AdminLiveOps';
-import AdminCommission from
-import AdminUsers from "./pages/admin/AdminUsers"; './pages/admin/AdminCommission';
+import AdminCommission from './pages/admin/AdminCommission';
+import AdminUsers from './pages/admin/AdminUsers';
 import LandingPage from './pages/public/LandingPage';
 import TermsPage from './pages/public/TermsPage';
 import ContactPage from './pages/public/ContactPage';
@@ -43,8 +43,8 @@ export default function App() {
           
           <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
           <Route path="/admin/live-ops" element={<PrivateRoute><AdminLiveOps /></PrivateRoute>} />
-          <Route path="/admin/users" element={<PrivateRoute><AdminUsers /></PrivateRoute>} />
           <Route path="/admin/commission" element={<PrivateRoute><AdminCommission /></PrivateRoute>} />
+          <Route path="/admin/users" element={<PrivateRoute><AdminUsers /></PrivateRoute>} />
           
           <Route path="/dashboard" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
             <Route path="streamer" element={<StreamerDashboard />} />
