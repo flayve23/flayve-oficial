@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
+import api from '../../lib/api';
 import { Loader2, Search, UserCog, Shield, Ban } from 'lucide-react';
 
 export default function AdminUsers() {

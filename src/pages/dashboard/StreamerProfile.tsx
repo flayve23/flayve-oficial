@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/services/api.ts';
 import { Loader2, Save } from 'lucide-react';
-import ImageUpload from '@/components/ui/ImageUpload';
+import ImageUpload from '../../components/ui/ImageUpload';
 
 export default function StreamerProfile() {
   const [loading, setLoading] = useState(true);

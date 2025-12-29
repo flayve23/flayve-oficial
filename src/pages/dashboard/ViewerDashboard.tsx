@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../lib/api';
 import { Search, Star, Video, Loader2, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import StoriesBar from '@/components/ui/StoriesBar';
+import StoriesBar from '../../components/ui/StoriesBar';
 
 export default function ViewerDashboard() {
   const { user } = useAuth();
