@@ -1,120 +1,110 @@
 import { Hono } from 'hono'
 import { hashPassword, verifyPassword, createSessionToken } from '../auth-utils'
-import { sendEmail } from '../utils/email'
 
 type Bindings = {
   DB: D1Database
-  SENDGRID_API_KEY: string
-  FROM_EMAIL: string
+  JWT_SECRET: string
 }
 
 const auth = new Hono<{ Bindings: Bindings }>()
 
+// Signup
 auth.post('/signup', async (c) => {
-  const { email, password, username, role } = await c.req.json()
-
-  if (!email || !password || !username) return c.json({ error: 'Missing fields' }, 400)
-
-  const existing = await c.env.DB.prepare('SELECT id FROM users WHERE email = ? OR username = ?')
-    .bind(email, username).first()
-
-  if (existing) return c.json({ error: 'User already exists' }, 409)
-
-  const { hash, salt } = await hashPassword(password)
-  const userRole = ['streamer', 'viewer', 'admin'].includes(role) ? role : 'viewer'
-
   try {
-    const result = await c.env.DB.prepare(
-      'INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, ?) RETURNING id, email, role'
-    ).bind(email, username, `${hash}:${salt}`, userRole).first()
+    // 1. Check ENV
+    if (!c.env.DB) return c.json({ error: 'CONFIG ERROR: DB binding is missing.' }, 500)
+    if (!c.env.JWT_SECRET) return c.json({ error: 'CONFIG ERROR: JWT_SECRET is missing.' }, 500)
 
-    if (userRole === 'streamer' && result) {
-      await c.env.DB.prepare('INSERT INTO profiles (user_id) VALUES (?)').bind(result.id).run()
+    const { username, email, password, role } = await c.req.json()
+
+    if (!username || !email || !password) {
+      return c.json({ error: 'Dados incompletos' }, 400)
     }
 
-    const token = await createSessionToken(result as any)
-    return c.json({ user: result, token }, 201)
+    // 2. Check Database Connection
+    try {
+        const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first()
+        if (existingUser) {
+          return c.json({ error: 'Email já cadastrado' }, 409)
+        }
+    } catch (dbError: any) {
+        return c.json({ error: `DB ERROR: ${dbError.message}` }, 500)
+    }
+
+    const salt = crypto.randomUUID()
+    const password_hash = await hashPassword(password, salt)
+
+    // 3. Insert User
+    const result = await c.env.DB.prepare(`
+      INSERT INTO users (username, email, password_hash, salt, role)
+      VALUES (?, ?, ?, ?, ?)
+      RETURNING id, username, email, role, created_at
+    `).bind(username, email, password_hash, salt, role || 'viewer').first()
+
+    if (!result) return c.json({ error: 'Falha ao criar usuário no banco' }, 500)
+
+    // 4. Create Profile
+    if (role === 'streamer') {
+      await c.env.DB.prepare(`
+        INSERT INTO profiles (user_id, bio_name, price_per_minute)
+        VALUES (?, ?, 10.00)
+      `).bind(result.id, username).run()
+    } else {
+        // Create wallet for viewer
+        // (Optional, wallet can be created on first recharge)
+    }
+
+    const token = await createSessionToken({ 
+      sub: result.id, 
+      email: result.email, 
+      role: result.role 
+    }, c.env.JWT_SECRET)
+
+    return c.json({ token, user: result })
   } catch (e: any) {
-    return c.json({ error: e.message }, 500)
+    return c.json({ error: `SERVER ERROR: ${e.message}` }, 500)
   }
 })
 
+// Login
 auth.post('/login', async (c) => {
-  const { email, password } = await c.req.json()
-  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first()
-
-  if (!user) return c.json({ error: 'Invalid credentials' }, 401)
-
-  const [storedHash, storedSalt] = (user.password_hash as string).split(':')
-  if (!storedSalt) return c.json({ error: 'Legacy data error' }, 500)
-
-  const isValid = await verifyPassword(password, storedHash, storedSalt)
-  if (!isValid) return c.json({ error: 'Invalid credentials' }, 401)
-
-  const token = await createSessionToken(user as any)
-  return c.json({ 
-    user: { id: user.id, email: user.email, username: user.username, role: user.role }, 
-    token 
-  })
-})
-
-// === RECUPERAÇÃO DE SENHA ===
-
-// 1. Solicitar Reset
-auth.post('/forgot-password', async (c) => {
-  const { email } = await c.req.json()
-  
-  // Buscar usuário (silencioso se não existir para segurança)
-  const user = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first()
-  if (!user) return c.json({ success: true }) // Fake success para não vazar emails
-
-  // Gerar Token
-  const resetToken = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + 3600000).toISOString() // 1 hora
-
-  await c.env.DB.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?')
-    .bind(resetToken, expiresAt, user.id).run()
-
-  // Enviar Email
   try {
-    const link = `${c.req.header('origin')}/reset-password?token=${resetToken}`
-    await sendEmail(
-      c.env.SENDGRID_API_KEY,
-      email,
-      c.env.FROM_EMAIL || 'noreply@flayve.com',
-      'Recuperação de Senha - FLAYVE',
-      `Você solicitou a recuperação de senha. Clique aqui para alterar: ${link}`
-    )
-  } catch (e) {
-    console.error(e)
-    // Não retornar erro para o cliente
+    if (!c.env.DB) return c.json({ error: 'CONFIG ERROR: DB binding missing' }, 500)
+    
+    const { email, password } = await c.req.json()
+
+    const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first() as any
+
+    if (!user) {
+      return c.json({ error: 'Credenciais inválidas' }, 401)
+    }
+
+    const isValid = await verifyPassword(password, user.salt, user.password_hash)
+
+    if (!isValid) {
+      return c.json({ error: 'Credenciais inválidas' }, 401)
+    }
+
+    if (!c.env.JWT_SECRET) return c.json({ error: 'CONFIG ERROR: JWT_SECRET missing' }, 500)
+
+    const token = await createSessionToken({ 
+      sub: user.id, 
+      email: user.email, 
+      role: user.role 
+    }, c.env.JWT_SECRET)
+
+    return c.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email, 
+        role: user.role 
+      } 
+    })
+  } catch (e: any) {
+    return c.json({ error: `LOGIN ERROR: ${e.message}` }, 500)
   }
-
-  return c.json({ success: true })
-})
-
-// 2. Definir Nova Senha
-auth.post('/reset-password', async (c) => {
-  const { token, newPassword } = await c.req.json()
-
-  // Validar Token
-  const user = await c.env.DB.prepare(`
-    SELECT id FROM users 
-    WHERE reset_token = ? AND reset_expires > CURRENT_TIMESTAMP
-  `).bind(token).first()
-
-  if (!user) return c.json({ error: 'Token inválido ou expirado' }, 400)
-
-  // Atualizar Senha e Limpar Token
-  const { hash, salt } = await hashPassword(newPassword)
-  
-  await c.env.DB.prepare(`
-    UPDATE users 
-    SET password_hash = ?, reset_token = NULL, reset_expires = NULL 
-    WHERE id = ?
-  `).bind(`${hash}:${salt}`, user.id).run()
-
-  return c.json({ success: true })
 })
 
 export default auth
