@@ -10,20 +10,10 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .pt-safe {
-    padding-top: env(safe-area-inset-top);
-  }
-  
-  .min-h-dvh {
-    min-height: 100dvh;
-  }
-  .h-dvh {
-    height: 100dvh;
-  }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .min-h-dvh { min-height: 100dvh; }
+  .h-dvh { height: 100dvh; }
 }
 
 :root {
@@ -33,14 +23,4 @@
 
 body {
   @apply bg-dark-900 text-gray-100 antialiased;
-  -webkit-font-smoothing: antialiased; 
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-input, select, textarea {
-  font-size: 16px !important; 
 }
