@@ -1,4 +1,5 @@
-Version V85 (Financial Ledger)
-1. Detailed Financial Ledger (Extrato).
-2. Visual indicators for Debits/Credits/Chargebacks.
-3. Run 'npx wrangler d1 migrations apply webapp-production --remote' to apply indexes.
+Version V86 (Production Ready)
+1. Real Storage Integration (Profile Pics, KYC).
+2. Streamer Visibility Toggle & Share Button.
+3. Viewer Custom Wallet Amount.
+4. IMPORTANT: Connect 'BUCKET' in Cloudflare Settings -> Functions.

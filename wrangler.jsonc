@@ -1,0 +1,10 @@
+{
+  "name": "flayve",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webapp-production",
+      "database_id": "b6e327ad-e5d2-4d9c-bdff-2ce790d8933f"
+    }
+  ]
+}
