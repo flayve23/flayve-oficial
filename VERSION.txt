@@ -1,4 +1,4 @@
-Version V83 (Final Stable)
-1. Fixed App.tsx syntax.
-2. Removed all aliases (@) to avoid build errors.
-3. Fixed AdminUsers.tsx missing import.
+Version V85 (Financial Ledger)
+1. Detailed Financial Ledger (Extrato).
+2. Visual indicators for Debits/Credits/Chargebacks.
+3. Run 'npx wrangler d1 migrations apply webapp-production --remote' to apply indexes.
