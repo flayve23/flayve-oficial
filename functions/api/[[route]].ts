@@ -8,7 +8,7 @@ import profiles from '../server/routes/profiles'
 import wallet from '../server/routes/wallet'
 import streamer from '../server/routes/streamer'
 import admin from '../server/routes/admin'
-import storage from '../server/routes/storage' // New
+import storage from '../server/routes/storage'
 import stories from '../server/routes/stories'
 import calls from '../server/routes/calls'
 import interactions from '../server/routes/interactions'
@@ -23,7 +23,9 @@ type Bindings = {
   SENDGRID_API_KEY: string
 }
 
-const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
+// NOTE: We do NOT use .basePath('/api') here because the file location 
+// 'functions/api/[[route]].ts' already establishes the /api prefix.
+const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/*', cors({
   origin: '*',
@@ -46,15 +48,13 @@ app.route('/interactions', interactions)
 
 // LiveKit Token Endpoint
 app.post('/livekit/token', async (c) => {
-  // ... (Keeping existing logic, simplified for brevity in this replace)
-  // In V86 we assume LiveKit is configured in env vars
   try {
      const { room, username } = await c.req.json()
      if (!c.env.LIVEKIT_API_KEY || !c.env.LIVEKIT_API_SECRET) {
         return c.json({ error: 'LiveKit not configured' }, 500)
      }
      
-     // Dynamic import to avoid build crash if SDK missing
+     // Dynamic import
      const { AccessToken } = await import('livekit-server-sdk')
      
      const at = new AccessToken(c.env.LIVEKIT_API_KEY, c.env.LIVEKIT_API_SECRET, {
@@ -70,12 +70,8 @@ app.post('/livekit/token', async (c) => {
 
 app.get('/health', (c) => c.json({ 
   status: 'ok', 
-  version: 'V86',
-  services: {
-    db: !!c.env.DB,
-    bucket: !!c.env.BUCKET,
-    livekit: !!c.env.LIVEKIT_API_KEY
-  }
+  version: 'V87',
+  engine: 'Cloudflare Functions'
 }))
 
 export default handle(app)

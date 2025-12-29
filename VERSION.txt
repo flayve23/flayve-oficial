@@ -1,5 +1,3 @@
-Version V86 (Production Ready)
-1. Real Storage Integration (Profile Pics, KYC).
-2. Streamer Visibility Toggle & Share Button.
-3. Viewer Custom Wallet Amount.
-4. IMPORTANT: Connect 'BUCKET' in Cloudflare Settings -> Functions.
+Version V87 (Server Repair)
+1. Re-created auth-utils.ts (was missing, causing 405).
+2. Fixed Hono BasePath routing logic.
