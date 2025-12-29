@@ -5,7 +5,7 @@ import { handle } from 'hono/cloudflare-pages'
 // Routes
 import auth from '../server/routes/auth'
 import profiles from '../server/routes/profiles'
-import wallet from '../server/routes/wallet' // Now exists!
+import wallet from '../server/routes/wallet'
 import streamer from '../server/routes/streamer'
 import admin from '../server/routes/admin'
 import storage from '../server/routes/storage'
@@ -23,8 +23,8 @@ type Bindings = {
   SENDGRID_API_KEY: string
 }
 
-// export const onRequest is CRITICAL for Pages Functions
-const app = new Hono<{ Bindings: Bindings }>()
+// FIX V93: Explicitly set basePath to '/api' so Hono matches the full URL correctly
+const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 
 app.use('/*', cors({
   origin: '*',
@@ -34,7 +34,7 @@ app.use('/*', cors({
   maxAge: 600,
 }))
 
-// Mount routes
+// Mount routes (These become /api/auth, /api/profiles, etc.)
 app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/wallet', wallet)
@@ -66,10 +66,12 @@ app.post('/livekit/token', async (c) => {
   }
 })
 
+// Debug endpoint to verify routing
 app.get('/health', (c) => c.json({ 
   status: 'ok', 
-  version: 'V89',
-  engine: 'Cloudflare Functions'
+  version: 'V93',
+  path: c.req.path,
+  msg: 'If you see this, /api routing is working!'
 }))
 
 export const onRequest = handle(app)
