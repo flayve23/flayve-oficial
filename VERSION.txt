@@ -1,4 +1,3 @@
-Version V88 (Syntax Repair)
-1. Changed API export to 'export const onRequest' (Fixes 'No routes found').
-2. Deleted wrangler.json/toml to fix build warnings.
-3. Updated _redirects to safer SPA rule.
+Version V89 (Wallet Fix)
+1. Renamed payment.ts to wallet.ts to fix build error.
+2. Ensured 'export const onRequest' is present.

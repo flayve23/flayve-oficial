@@ -5,7 +5,7 @@ import { handle } from 'hono/cloudflare-pages'
 // Routes
 import auth from '../server/routes/auth'
 import profiles from '../server/routes/profiles'
-import wallet from '../server/routes/wallet'
+import wallet from '../server/routes/wallet' // Now exists!
 import streamer from '../server/routes/streamer'
 import admin from '../server/routes/admin'
 import storage from '../server/routes/storage'
@@ -23,8 +23,7 @@ type Bindings = {
   SENDGRID_API_KEY: string
 }
 
-// NOTE: We do NOT use .basePath('/api') here because the file location 
-// 'functions/api/[[route]].ts' already establishes the /api prefix.
+// export const onRequest is CRITICAL for Pages Functions
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/*', cors({
@@ -54,7 +53,6 @@ app.post('/livekit/token', async (c) => {
         return c.json({ error: 'LiveKit not configured' }, 500)
      }
      
-     // Dynamic import
      const { AccessToken } = await import('livekit-server-sdk')
      
      const at = new AccessToken(c.env.LIVEKIT_API_KEY, c.env.LIVEKIT_API_SECRET, {
@@ -70,7 +68,7 @@ app.post('/livekit/token', async (c) => {
 
 app.get('/health', (c) => c.json({ 
   status: 'ok', 
-  version: 'V87',
+  version: 'V89',
   engine: 'Cloudflare Functions'
 }))
 
