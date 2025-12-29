@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext.tsx';
-import api from '@/lib/api.ts';
+import { useAuth } from '@/contexts/AuthContext';
+import api from '@/lib/api';
 import { Search, Star, Video, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import StoriesBar from '@/components/ui/StoriesBar.tsx';
-import RechargeModal from '@/components/ui/RechargeModal.tsx';
+import StoriesBar from '@/components/ui/StoriesBar';
+import RechargeModal from '@/components/ui/RechargeModal';
 
 interface StreamerProfile {
   id: number;

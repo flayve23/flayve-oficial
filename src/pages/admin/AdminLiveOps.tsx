@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '@/lib/api.ts';
+import api from '@/lib/api';
 import { Loader2, Eye, Ban, XOctagon, Video } from 'lucide-react';
 import { LiveKitRoom, VideoConference } from '@livekit/components-react';
 import '@livekit/components-styles';

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext.tsx';
+import { useAuth } from '@/contexts/AuthContext';
 import { LogOut, Home, Video, CreditCard, User, LayoutDashboard } from 'lucide-react';
 
 export default function DashboardLayout() {

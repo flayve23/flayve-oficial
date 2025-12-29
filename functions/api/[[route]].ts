@@ -11,18 +11,13 @@ import stories from '../server/routes/stories'
 import calls from '../server/routes/calls'
 
 type Bindings = {
-  DB: D1Database
-  BUCKET: R2Bucket
-  JWT_SECRET: string
-  LIVEKIT_API_KEY: string
-  LIVEKIT_API_SECRET: string
-  LIVEKIT_URL: string
-  SENDGRID_API_KEY: string
+  DB: D1Database; BUCKET: R2Bucket; JWT_SECRET: string;
+  LIVEKIT_API_KEY: string; LIVEKIT_API_SECRET: string; LIVEKIT_URL: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 app.use('/*', cors())
-app.get('/health', (c) => c.json({ status: 'ok', architecture: 'native_v72' }))
+app.get('/health', (c) => c.json({ status: 'ok' }))
 app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/wallet', payment)

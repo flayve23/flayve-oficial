@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '@/lib/api.ts';
+import api from '@/lib/api';
 import { Gift, Loader2 } from 'lucide-react';
 
 interface GiftSelectorProps {

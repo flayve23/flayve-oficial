@@ -1,0 +1,13 @@
+name = "flayve"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "webapp-production"
+database_id = "b6e327ad-e5d2-4d9c-bdff-2ce790d8933f"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "flayve-assets"

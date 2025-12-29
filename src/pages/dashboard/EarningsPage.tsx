@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '@/lib/api.ts';
+import api from '@/lib/api';
 import { Loader2, DollarSign, ArrowUpRight, History, Building } from 'lucide-react';
 
 export default function EarningsPage() {
