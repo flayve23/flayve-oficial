@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '@/services/api';
+import api from '@/services/api.ts';
 import { Plus, X } from 'lucide-react';
 import ImageUpload from '../ui/ImageUpload';
 import { useAuth } from '@/contexts/AuthContext';

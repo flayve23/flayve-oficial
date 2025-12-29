@@ -9,6 +9,7 @@ import admin from '../server/routes/admin'
 import storage from '../server/routes/storage'
 import stories from '../server/routes/stories'
 import calls from '../server/routes/calls'
+import interactions from '../server/routes/interactions'
 
 type Bindings = {
   DB: D1Database
@@ -22,7 +23,8 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 app.use('/*', cors())
-app.get('/health', (c) => c.json({ status: 'ok', architecture: 'native_v72' }))
+app.get('/health', (c) => c.json({ status: 'ok', architecture: 'native_v79' }))
+
 app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/wallet', payment)
@@ -31,6 +33,7 @@ app.route('/admin', admin)
 app.route('/storage', storage)
 app.route('/stories', stories)
 app.route('/calls', calls)
+app.route('/interactions', interactions) // Nova rota
 
 app.post('/livekit/token', async (c) => {
   try {

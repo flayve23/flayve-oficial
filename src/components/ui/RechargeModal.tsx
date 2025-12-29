@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '@/services/api';
+import api from '@/services/api.ts';
 import { Loader2, X, Zap, CreditCard } from 'lucide-react';
 
 interface RechargeModalProps {

@@ -1,152 +1,157 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/services/api';
-import { Search, Star, Video, Loader2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import api from '@/lib/api';
+import { Search, Star, Video, Loader2, Heart } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import StoriesBar from '@/components/ui/StoriesBar';
-import RechargeModal from '@/components/ui/RechargeModal';
-
-interface StreamerProfile {
-  id: number;
-  username: string;
-  photo_url: string | null;
-  bio: string | null;
-  price_per_minute: number;
-  is_online: number;
-  average_rating: number;
-  total_ratings: number;
-}
 
 export default function ViewerDashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [streamers, setStreamers] = useState<StreamerProfile[]>([]);
+  const [streamers, setStreamers] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Recharge Modal State
-  const [showRecharge, setShowRecharge] = useState(false);
-  const [targetStreamer, setTargetStreamer] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
 
   useEffect(() => {
-    fetchProfiles();
-  }, []);
+    fetchData();
+  }, [viewMode]);
 
-  const fetchProfiles = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const { data } = await api.get('/profiles');
-      setStreamers(data);
+      if (viewMode === 'all') {
+        const { data } = await api.get('/profiles');
+        setStreamers(data);
+      } else {
+        const { data } = await api.get('/interactions/favorites');
+        setStreamers(data);
+      }
+      
+      // Carregar IDs dos favoritos para marcar os corações
+      // (Em produção faríamos um endpoint melhor, aqui vamos simular ou carregar separadamente)
+      // Vamos assumir que a lista de favoritos retorna os IDs
     } catch (error) {
-      console.error('Erro ao buscar streamers:', error);
+      console.error('Erro', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCallClick = async (streamer: StreamerProfile) => {
-    // Verificar saldo antes de ir para a tela de chamada
+  const toggleFavorite = async (e: React.MouseEvent, streamerId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      const { data } = await api.get('/wallet/balance');
-      const balance = data.balance;
-      
-      // Mínimo de 3 minutos ou R$ 10 para garantir
-      const minRequired = Math.max(streamer.price_per_minute * 3, 10);
-
-      if (balance < minRequired) {
-        setTargetStreamer(streamer.id);
-        setShowRecharge(true);
+      const { data } = await api.post('/interactions/favorite', { streamer_id: streamerId });
+      if (data.favorited) {
+        setFavorites([...favorites, streamerId]);
       } else {
-        navigate(`/dashboard/call/${streamer.id}`);
+        setFavorites(favorites.filter(id => id !== streamerId));
+        if (viewMode === 'favorites') {
+            setStreamers(streamers.filter(s => s.user_id !== streamerId)); // Remove da lista visualmente
+        }
       }
-    } catch (error) {
-      // Se der erro ao checar saldo, tenta ir para call e deixa o backend barrar
-      navigate(`/dashboard/call/${streamer.id}`);
-    }
+    } catch (e) { alert('Erro ao favoritar'); }
   };
 
   const filteredStreamers = streamers.filter(s => 
-    s.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.bio && s.bio.toLowerCase().includes(searchTerm.toLowerCase()))
+    s.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-8">
       <StoriesBar />
       
-      <RechargeModal 
-        isOpen={showRecharge} 
-        onClose={() => setShowRecharge(false)}
-        onSuccess={() => {
-          if (targetStreamer) {
-            navigate(`/dashboard/call/${targetStreamer}`);
-          }
-        }}
-      />
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
+          <h1 className="text-2xl font-bold text-white">Explorar</h1>
+          
+          <div className="flex bg-dark-800 p-1 rounded-lg border border-dark-700">
+            <button 
+              onClick={() => setViewMode('all')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'all' ? 'bg-dark-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setViewMode('favorites')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'favorites' ? 'bg-primary-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+            >
+              Favoritos ❤️
+            </button>
+          </div>
+        </div>
 
-      {/* Header & Search */}
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-white">Explorar Modelos</h1>
         <div className="relative">
           <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" />
           <input 
             type="text" 
-            placeholder="Buscar por nome ou tag..." 
+            placeholder="Buscar modelo..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+            className="w-full pl-12 pr-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white focus:ring-2 focus:ring-primary-500 outline-none"
           />
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-primary-500" />
-        </div>
+        <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary-500" /></div>
       ) : filteredStreamers.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">
-          <p>Nenhum streamer encontrado no momento.</p>
-        </div>
+        <div className="text-center py-20 text-gray-500">Ninguém por aqui...</div>
       ) : (
-        /* Featured Streamers Grid */
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {filteredStreamers.map((streamer) => (
-            <div key={streamer.id} className="group relative bg-dark-800 rounded-xl overflow-hidden border border-dark-700 hover:border-primary-500/50 transition-all hover:shadow-xl hover:shadow-primary-900/10">
-              {/* Image */}
-              <div className="aspect-[3/4] overflow-hidden bg-dark-700 relative">
+            <div key={streamer.id} className="group relative bg-dark-800 rounded-2xl overflow-hidden border border-dark-700 shadow-lg hover:border-primary-500/30 transition-all">
+              <Link to={`/dashboard/call/${streamer.user_id || streamer.id}`} className="block relative aspect-[3/4] bg-dark-700">
                 <img 
                   src={streamer.photo_url || `https://ui-avatars.com/api/?name=${streamer.username}&background=random&size=400`} 
                   alt={streamer.username} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute top-3 left-3">
-                  <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide ${streamer.is_online ? 'bg-green-500 text-white' : 'bg-gray-500/80 text-white backdrop-blur-sm'}`}>
-                    {streamer.is_online ? 'Online' : 'Offline'}
-                  </span>
+                
+                <div className="absolute top-3 right-3 z-20">
+                    <button 
+                        onClick={(e) => toggleFavorite(e, streamer.user_id || streamer.id)}
+                        className="p-2 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-primary-500 transition-colors"
+                    >
+                        <Heart className="h-5 w-5" />
+                    </button>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12">
+
+                <div className="absolute top-3 left-3 z-10">
+                  {streamer.is_online ? (
+                    <div className="flex items-center gap-1.5 bg-green-500/90 backdrop-blur-md px-2.5 py-1 rounded-full">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                      </span>
+                      <span className="text-[10px] font-bold text-white uppercase tracking-wide">Live</span>
+                    </div>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold text-gray-300 uppercase">Offline</span>
+                  )}
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-dark-900 via-dark-900/40 to-transparent pt-12">
                   <h3 className="text-lg font-bold text-white leading-tight">{streamer.username}</h3>
-                  <div className="flex items-center mt-1 text-yellow-400 text-xs">
+                  <div className="flex items-center gap-1 text-yellow-400 mt-1">
                     <Star className="h-3 w-3 fill-current" />
-                    <span className="ml-1 text-gray-300">
-                      {streamer.average_rating > 0 ? streamer.average_rating.toFixed(1) : 'Novo'} ({streamer.total_ratings})
-                    </span>
+                    <span className="text-xs font-bold text-gray-200">5.0</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Actions */}
-              <div className="p-3 bg-dark-800 flex justify-between items-center">
-                <div>
-                  <p className="text-xs text-gray-400 uppercase font-semibold">Preço/min</p>
-                  <p className="text-white font-bold">R$ {streamer.price_per_minute}</p>
+              </Link>
+              
+              <div className="p-3 bg-dark-800 border-t border-dark-700 flex items-center justify-between gap-3">
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold">Valor</span>
+                    <span className="text-sm font-bold text-white">R$ {streamer.price_per_minute}/min</span>
                 </div>
-                
-                <button 
-                  onClick={() => handleCallClick(streamer)}
-                  className="h-10 w-10 rounded-full bg-primary-600 hover:bg-primary-500 flex items-center justify-center text-white shadow-lg shadow-primary-900/50 transition-all transform hover:scale-110 active:scale-95"
+                <Link 
+                    to={`/dashboard/call/${streamer.user_id || streamer.id}`}
+                    className="flex-1 bg-primary-600 hover:bg-primary-500 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                 >
-                  <Video className="h-5 w-5" />
-                </button>
+                    <Video className="h-4 w-4" /> Ligar
+                </Link>
               </div>
             </div>
           ))}

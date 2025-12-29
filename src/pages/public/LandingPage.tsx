@@ -256,6 +256,7 @@ export default function LandingPage() {
           <div className="flex justify-center gap-8 mb-8 text-sm text-gray-400">
             <Link to="/terms" className="hover:text-white transition-colors">Termos de Uso</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Privacidade</Link>
+            <Link to="/contact" className="hover:text-white transition-colors">Contato</Link>
             <a href="#" className="hover:text-white transition-colors">Suporte</a>
           </div>
           <p className="text-xs text-gray-600">

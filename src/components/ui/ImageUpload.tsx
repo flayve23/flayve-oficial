@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import api from '@/services/api';
+import api from '@/services/api.ts';
 import { Loader2, Upload, Camera } from 'lucide-react';
 
 interface ImageUploadProps {

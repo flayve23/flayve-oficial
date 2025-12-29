@@ -12,7 +12,7 @@ import {
 import { Track } from 'livekit-client';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/services/api';
+import api from '@/services/api.ts';
 import { Loader2, Clock, DollarSign } from 'lucide-react';
 import GiftSelector from '@/components/ui/GiftSelector';
 import RechargeModal from '@/components/ui/RechargeModal';

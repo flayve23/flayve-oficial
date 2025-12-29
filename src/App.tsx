@@ -17,6 +17,8 @@ import AdminLiveOps from '@/pages/admin/AdminLiveOps';
 import AdminCommission from '@/pages/admin/AdminCommission';
 import LandingPage from '@/pages/public/LandingPage';
 import TermsPage from '@/pages/public/TermsPage';
+import ContactPage from '@/pages/public/ContactPage';
+import AgeGate from '@/components/ui/AgeGate';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { token, isLoading } = useAuth();
@@ -28,9 +30,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AgeGate />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
