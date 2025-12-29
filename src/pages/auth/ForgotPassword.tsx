@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '@/lib/api';
+import api from '@/services/api';
 import { Loader2, Mail, CheckCircle } from 'lucide-react';
 
 export default function ForgotPassword() {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
+import api from '@/services/api';
 import { Loader2, CreditCard, Wallet, ArrowUpRight, History } from 'lucide-react';
 
 interface Transaction {

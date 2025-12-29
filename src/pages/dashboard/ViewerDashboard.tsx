@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
+import api from '@/services/api';
 import { Search, Star, Video, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import StoriesBar from '@/components/ui/StoriesBar';
