@@ -24,6 +24,9 @@ export default function AdminDashboard() {
           <Video className="h-5 w-5" />
           MONITORAR AO VIVO
         </Link>
+        <Link to="/admin/users" className="ml-4 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+          <UserCog className="h-5 w-5" /> USUÁRIOS
+        </Link>
         <Link 
           to="/admin/commission" 
           className="ml-4 bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
