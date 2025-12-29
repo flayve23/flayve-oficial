@@ -1,22 +1,22 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import Login from '@/pages/auth/Login';
-import Signup from '@/pages/auth/Signup';
-import ForgotPassword from '@/pages/auth/ForgotPassword';
-import ResetPassword from '@/pages/auth/ResetPassword';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import StreamerDashboard from '@/pages/dashboard/StreamerDashboard';
-import StreamerProfile from '@/pages/dashboard/StreamerProfile';
-import CallPage from '@/pages/call/CallPage';
-import KYCPage from '@/pages/dashboard/KYCPage';
-import EarningsPage from '@/pages/dashboard/EarningsPage';
-import ViewerDashboard from '@/pages/dashboard/ViewerDashboard';
-import ViewerWallet from '@/pages/dashboard/ViewerWallet';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import AdminLiveOps from '@/pages/admin/AdminLiveOps';
-import AdminCommission from '@/pages/admin/AdminCommission';
-import LandingPage from '@/pages/public/LandingPage';
-import TermsPage from '@/pages/public/TermsPage';
+import Login from './pages/auth/Login';
+import Signup from './pages/auth/Signup';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import DashboardLayout from './components/layout/DashboardLayout';
+import StreamerDashboard from './pages/dashboard/StreamerDashboard';
+import StreamerProfile from './pages/dashboard/StreamerProfile';
+import CallPage from './pages/call/CallPage';
+import KYCPage from './pages/dashboard/KYCPage';
+import EarningsPage from './pages/dashboard/EarningsPage';
+import ViewerDashboard from './pages/dashboard/ViewerDashboard';
+import ViewerWallet from './pages/dashboard/ViewerWallet';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminLiveOps from './pages/admin/AdminLiveOps';
+import AdminCommission from './pages/admin/AdminCommission';
+import LandingPage from './pages/public/LandingPage';
+import TermsPage from './pages/public/TermsPage';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { token, isLoading } = useAuth();
@@ -35,11 +35,9 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          
           <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
           <Route path="/admin/live-ops" element={<PrivateRoute><AdminLiveOps /></PrivateRoute>} />
           <Route path="/admin/commission" element={<PrivateRoute><AdminCommission /></PrivateRoute>} />
-          
           <Route path="/dashboard" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
             <Route path="streamer" element={<StreamerDashboard />} />
             <Route path="streamer/profile" element={<StreamerProfile />} />
