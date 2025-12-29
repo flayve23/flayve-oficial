@@ -20,12 +20,9 @@ type Bindings = {
   SENDGRID_API_KEY: string
 }
 
-// BasePath /api mantido pois a pasta functions mapeia, mas o Hono precisa saber cortar a URL
 const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
-
 app.use('/*', cors())
-app.get('/health', (c) => c.json({ status: 'ok', architecture: 'native_v70' }))
-
+app.get('/health', (c) => c.json({ status: 'ok', architecture: 'native_v72' }))
 app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/wallet', payment)
