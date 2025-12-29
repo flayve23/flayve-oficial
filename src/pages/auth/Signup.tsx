@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext.tsx';
+import api from '@/lib/api.ts';
 import { Loader2 } from 'lucide-react';
 
 export default function Signup() {

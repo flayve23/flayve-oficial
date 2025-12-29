@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext.tsx';
 import { DollarSign, Video, Users, TrendingUp } from 'lucide-react';
 
 export default function StreamerDashboard() {

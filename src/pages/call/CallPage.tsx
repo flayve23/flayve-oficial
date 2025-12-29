@@ -11,11 +11,11 @@ import {
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext.tsx';
+import api from '@/lib/api.ts';
 import { Loader2, Clock, DollarSign } from 'lucide-react';
-import GiftSelector from '@/components/ui/GiftSelector';
-import RechargeModal from '@/components/ui/RechargeModal';
+import GiftSelector from '@/components/ui/GiftSelector.tsx';
+import RechargeModal from '@/components/ui/RechargeModal.tsx';
 
 export default function CallPage() {
   const { id: streamerId } = useParams();
