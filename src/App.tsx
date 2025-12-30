@@ -7,7 +7,8 @@ import ResetPassword from './pages/auth/ResetPassword';
 import DashboardLayout from './components/layout/DashboardLayout';
 import StreamerDashboard from './pages/dashboard/StreamerDashboard';
 import StreamerProfile from './pages/dashboard/StreamerProfile';
-import CallPage from './pages/call/CallPage';
+import CallPage from "./pages/call/CallPage";
+import ActiveCallPage from "./pages/call/ActiveCallPage";
 import KYCPage from './pages/dashboard/KYCPage';
 import EarningsPage from './pages/dashboard/EarningsPage';
 import ViewerDashboard from './pages/dashboard/ViewerDashboard';
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="viewer" element={<ViewerDashboard />} />
             <Route path="viewer/wallet" element={<ViewerWallet />} />
             <Route path="call/:id" element={<CallPage />} />
+<Route path="call/active" element={<ActiveCallPage />} />
           </Route>
         </Routes>
       </AuthProvider>

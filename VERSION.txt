@@ -1,4 +1,5 @@
-Version V100 (The Truth Update)
-1. CallPage: REMOVED auto-redirect on error. Now shows error message on screen.
-2. Profiles: Added robust UPSERT logic to fix Save Error.
-3. Wallet: Added REAL Mercado Pago logic (checks ENV key).
+Version V101 (Ringtone Update)
+1. Call Signaling: Implemented ringing logic (Request -> Poll -> Answer).
+2. Frontend: Added IncomingCallModal (Campainha) for Streamers.
+3. Stability: Removed React.StrictMode to fix video vanishing.
+4. CRITICAL: Run migration 'npx wrangler d1 migrations apply webapp-production --remote'!

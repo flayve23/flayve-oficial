@@ -1,103 +1,99 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Home, Video, CreditCard, User, LayoutDashboard } from 'lucide-react';
+import { Home, Video, User, Wallet, LogOut, Shield, Menu, X, Users, UploadCloud } from 'lucide-react';
+import { useState } from 'react';
+import IncomingCallModal from '../ui/IncomingCallModal';
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
-  const streamerLinks = [
-    { name: 'Dashboard', path: '/dashboard/streamer', icon: LayoutDashboard },
-    { name: 'Ganhos', path: '/dashboard/streamer/earnings', icon: CreditCard },
-    { name: 'Perfil', path: '/dashboard/streamer/profile', icon: User },
-    { name: 'Verificação', path: '/dashboard/streamer/kyc', icon: User },
-  ];
-
-  const viewerLinks = [
-    { name: 'Explorar', path: '/dashboard/viewer', icon: Home },
-    { name: 'Saldo', path: '/dashboard/viewer/wallet', icon: CreditCard },
-  ];
-
-  const links = user?.role === 'streamer' ? streamerLinks : viewerLinks;
-
   return (
-    <div className="min-h-screen bg-dark-900 flex text-gray-100 font-sans">
-      <aside className="hidden md:flex flex-col w-64 bg-dark-800 border-r border-dark-700">
+    <div className="min-h-screen bg-dark-900 text-gray-100 flex">
+      {/* Inject Ringer for Streamers */}
+      {user?.role === 'streamer' && <IncomingCallModal />}
+
+      {/* Mobile Menu Button */}
+      <button 
+        className="lg:hidden fixed top-4 right-4 z-50 p-2 bg-dark-800 rounded-lg border border-dark-700 text-white"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+      >
+        {mobileMenuOpen ? <X /> : <Menu />}
+      </button>
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-40 w-64 bg-dark-800 border-r border-dark-700 transform transition-transform duration-200 ease-in-out
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <div className="p-6">
-          <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">
-            FLAYVE
-          </h1>
-          <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-semibold">
-            {user?.role === 'streamer' ? 'Painel Creator' : 'Viewer Area'}
-          </p>
+          <div className="flex items-center gap-2 mb-8">
+            <Video className="h-8 w-8 text-primary-500" />
+            <span className="text-xl font-bold text-white tracking-tight">FLAYVE</span>
+          </div>
+
+          <div className="flex flex-col items-center mb-8 p-4 bg-dark-900/50 rounded-xl border border-dark-700">
+             <div className="w-16 h-16 rounded-full bg-dark-700 mb-3 flex items-center justify-center text-xl font-bold text-gray-500">
+                {user?.username.substring(0,2).toUpperCase()}
+             </div>
+             <h3 className="font-bold text-white">{user?.username}</h3>
+             <span className="text-xs text-primary-400 uppercase font-bold tracking-wider">{user?.role}</span>
+          </div>
+
+          <nav className="space-y-1">
+            {user?.role === 'streamer' && (
+              <>
+                <NavLink to="/dashboard/streamer" icon={<Home />} label="Dashboard" active={isActive('/dashboard/streamer')} />
+                <NavLink to="/dashboard/streamer/profile" icon={<User />} label="Meu Perfil" active={isActive('/dashboard/streamer/profile')} />
+                <NavLink to="/dashboard/streamer/earnings" icon={<Wallet />} label="Ganhos" active={isActive('/dashboard/streamer/earnings')} />
+                <NavLink to="/dashboard/streamer/kyc" icon={<Shield />} label="Verificação" active={isActive('/dashboard/streamer/kyc')} />
+              </>
+            )}
+
+            {user?.role === 'viewer' && (
+              <>
+                <NavLink to="/dashboard/viewer" icon={<Home />} label="Explorar" active={isActive('/dashboard/viewer')} />
+                <NavLink to="/dashboard/viewer/wallet" icon={<Wallet />} label="Carteira" active={isActive('/dashboard/viewer/wallet')} />
+              </>
+            )}
+
+            {user?.role === 'admin' && (
+               <div className="mt-4 pt-4 border-t border-dark-700">
+                  <p className="px-4 text-xs font-bold text-gray-500 uppercase mb-2">Admin</p>
+                  <NavLink to="/admin" icon={<Shield />} label="Visão Geral" active={isActive('/admin')} />
+                  <NavLink to="/admin/users" icon={<Users />} label="Usuários" active={isActive('/admin/users')} />
+               </div>
+            )}
+          </nav>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1">
-          {links.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                isActive(link.path)
-                  ? 'bg-primary-600/10 text-primary-400'
-                  : 'text-gray-400 hover:bg-dark-700 hover:text-gray-200'
-              }`}
-            >
-              <link.icon className={`h-5 w-5 mr-3 ${isActive(link.path) ? 'text-primary-400' : 'text-gray-500'}`} />
-              {link.name}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-dark-700">
-          <div className="flex items-center mb-4 px-2">
-            <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-xs font-bold text-white">
-              {user?.username?.substring(0, 2).toUpperCase()}
-            </div>
-            <div className="ml-3 overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">{user?.username}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-            </div>
-          </div>
-          <button
-            onClick={logout}
-            className="w-full flex items-center px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            Sair
+        <div className="absolute bottom-0 w-full p-6 border-t border-dark-700">
+          <button onClick={logout} className="flex items-center gap-3 text-gray-400 hover:text-red-400 transition-colors w-full">
+            <LogOut className="h-5 w-5" /> Sair
           </button>
         </div>
       </aside>
 
-      <div className="md:hidden fixed top-0 w-full bg-dark-800 border-b border-dark-700 z-50 px-4 py-3 flex justify-between items-center">
-         <h1 className="text-xl font-black text-primary-500">FLAYVE</h1>
-         <button onClick={logout} className="text-gray-400">
-           <LogOut className="h-6 w-6" />
-         </button>
-      </div>
-
-      <main className="flex-1 md:ml-0 pt-16 md:pt-0 overflow-y-auto bg-dark-900 pb-20 md:pb-0">
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto h-screen bg-black">
+        <div className="p-4 lg:p-8 pt-20 lg:pt-8 max-w-7xl mx-auto">
           <Outlet />
         </div>
       </main>
-
-      <nav className="md:hidden fixed bottom-0 w-full bg-dark-800 border-t border-dark-700 flex justify-around p-2 pb-safe z-40">
-        {links.map((link) => (
-          <Link
-            key={link.path}
-            to={link.path}
-            className={`flex flex-col items-center p-2 rounded-lg ${
-              isActive(link.path) ? 'text-primary-400' : 'text-gray-500'
-            }`}
-          >
-            <link.icon className="h-6 w-6" />
-            <span className="text-[10px] mt-1">{link.name}</span>
-          </Link>
-        ))}
-      </nav>
     </div>
+  );
+}
+
+function NavLink({ to, icon, label, active }: any) {
+  return (
+    <Link to={to} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+      active ? 'bg-primary-600 text-white font-bold shadow-lg shadow-primary-900/20' : 'text-gray-400 hover:bg-dark-700 hover:text-white'
+    }`}>
+      {icon}
+      <span>{label}</span>
+    </Link>
   );
 }

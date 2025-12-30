@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api.ts';
-import { Search, Star, Video, Loader2, Heart, AlertTriangle } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Search, Star, Video, Loader2, Heart, AlertTriangle, PhoneOutgoing } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import StoriesBar from '../../components/ui/StoriesBar';
 
 export default function ViewerDashboard() {
@@ -11,9 +11,8 @@ export default function ViewerDashboard() {
   const [streamers, setStreamers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Confirmation Modal State
   const [confirmCall, setConfirmCall] = useState<any>(null);
+  const [callingState, setCallingState] = useState<'idle' | 'calling'>('idle');
 
   useEffect(() => {
     fetchData();
@@ -35,8 +34,44 @@ export default function ViewerDashboard() {
       setConfirmCall(streamer);
   };
 
-  const proceedToCall = () => {
-      navigate(`/dashboard/call/${confirmCall.user_id}`);
+  const proceedToCall = async () => {
+      setCallingState('calling');
+      try {
+          // 1. Request Call
+          const { data } = await api.post('/calls/request', { streamer_id: confirmCall.user_id });
+          const callId = data.call_id;
+
+          // 2. Poll for Acceptance
+          const poll = setInterval(async () => {
+              try {
+                  const statusRes = await api.get(`/calls/status/${callId}`);
+                  if (statusRes.data.status === 'accepted') {
+                      clearInterval(poll);
+                      // Go to active call page (using generic component but passing state)
+                      // Or creating a new ActiveCallPage. For now, use CallPage logic but we need to pass token.
+                      // Let's navigate to call page and let it handle token fetching if we passed ID, 
+                      // BUT CallPage expects to Join.
+                      // We need to modify CallPage or use state.
+                      navigate(`/dashboard/call/active`, { 
+                          state: { 
+                              token: statusRes.data.token, 
+                              url: statusRes.data.url,
+                              room: statusRes.data.room 
+                          } 
+                      });
+                  } else if (statusRes.data.status === 'rejected') {
+                      clearInterval(poll);
+                      alert('Chamada recusada.');
+                      setCallingState('idle');
+                      setConfirmCall(null);
+                  }
+              } catch (e) { clearInterval(poll); }
+          }, 2000);
+
+      } catch (e: any) {
+          alert(e.response?.data?.error || 'Erro ao chamar.');
+          setCallingState('idle');
+      }
   };
 
   const filteredStreamers = streamers.filter(s => 
@@ -50,32 +85,41 @@ export default function ViewerDashboard() {
       {/* Confirmation Modal */}
       {confirmCall && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-dark-800 border border-dark-600 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
-                  <h3 className="text-xl font-bold text-white mb-2">Iniciar Chamada?</h3>
-                  <div className="bg-dark-900 p-4 rounded-xl mb-4 border border-dark-700">
-                      <div className="flex justify-between mb-2">
-                          <span className="text-gray-400">Modelo</span>
-                          <span className="text-white font-bold">{confirmCall.username}</span>
+              <div className="bg-dark-800 border border-dark-600 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-center">
+                  {callingState === 'calling' ? (
+                      <div className="py-8">
+                          <div className="relative w-20 h-20 mx-auto mb-4">
+                              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
+                              <div className="relative bg-dark-700 w-20 h-20 rounded-full flex items-center justify-center border-4 border-green-500">
+                                  <PhoneOutgoing className="w-8 h-8 text-white" />
+                              </div>
+                          </div>
+                          <h3 className="text-xl font-bold text-white animate-pulse">Chamando {confirmCall.username}...</h3>
+                          <p className="text-gray-400 mt-2 text-sm">Aguardando resposta</p>
                       </div>
-                      <div className="flex justify-between items-center">
-                          <span className="text-gray-400">Preço</span>
-                          <span className="text-primary-400 font-bold text-lg">R$ {confirmCall.price_per_minute}/min</span>
-                      </div>
-                  </div>
-                  <div className="flex items-start gap-2 mb-6">
-                      <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                      <p className="text-xs text-gray-400">
-                          Ao confirmar, você concorda com a cobrança por minuto. Certifique-se de ter saldo.
-                      </p>
-                  </div>
-                  <div className="flex gap-3">
-                      <button onClick={() => setConfirmCall(null)} className="flex-1 py-3 bg-dark-700 rounded-xl text-gray-300 font-bold hover:bg-dark-600">
-                          Cancelar
-                      </button>
-                      <button onClick={proceedToCall} className="flex-1 py-3 bg-green-600 rounded-xl text-white font-bold hover:bg-green-500 shadow-lg shadow-green-900/20">
-                          Confirmar e Ligar
-                      </button>
-                  </div>
+                  ) : (
+                      <>
+                        <h3 className="text-xl font-bold text-white mb-2">Iniciar Chamada?</h3>
+                        <div className="bg-dark-900 p-4 rounded-xl mb-4 border border-dark-700">
+                            <div className="flex justify-between mb-2">
+                                <span className="text-gray-400">Modelo</span>
+                                <span className="text-white font-bold">{confirmCall.username}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400">Preço</span>
+                                <span className="text-primary-400 font-bold text-lg">R$ {confirmCall.price_per_minute}/min</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setConfirmCall(null)} className="flex-1 py-3 bg-dark-700 rounded-xl text-gray-300 font-bold hover:bg-dark-600">
+                                Cancelar
+                            </button>
+                            <button onClick={proceedToCall} className="flex-1 py-3 bg-green-600 rounded-xl text-white font-bold hover:bg-green-500">
+                                Ligar Agora
+                            </button>
+                        </div>
+                      </>
+                  )}
               </div>
           </div>
       )}
