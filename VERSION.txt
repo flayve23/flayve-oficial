@@ -1,4 +1,4 @@
-Version V102 (Payment & Visuals)
-1. Wallet: QR Code now displays INSIDE the modal (No more email dependency).
-2. Wallet: Added 'Pay with Card' button connecting to secure MP checkout.
-3. Video: Fixed Black Screen by forcing CSS import and Custom Grid Layout.
+Version V103 (Strict Mode)
+1. Storage: Using Base64 Uploads to bypass binary issues.
+2. Wallet: NO SIMULATOR. Requires real MP Key. Check Logs if fails.
+3. Video: Manual Rendering (Raw VideoTrack) to fix black screen.

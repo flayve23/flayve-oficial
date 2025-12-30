@@ -35,65 +35,55 @@ wallet.post('/recharge', async (c) => {
   
   if (!amount || amount < 1) return c.json({ error: 'Valor inválido' }, 400)
 
-  // MERCADO PAGO INTEGRATION CHECK
-  if (c.env.MERCADO_PAGO_ACCESS_TOKEN && method === 'pix') {
-    try {
-        // Real PIX Generation
-        const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${c.env.MERCADO_PAGO_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json',
-                'X-Idempotency-Key': crypto.randomUUID()
-            },
-            body: JSON.stringify({
-                transaction_amount: Number(amount),
-                description: `Recarga Flayve - User ${user.sub}`,
-                payment_method_id: 'pix',
-                payer: { email: user.email },
-                installments: 1
-            })
-        });
-        
-        const mpData = await mpRes.json();
-        
-        if (!mpRes.ok) {
-            console.error('MP Error:', mpData);
-            return c.json({ error: 'Falha no gateway de pagamento (MP)' }, 500);
-        }
-
-        // Save Pending Transaction
-        await c.env.DB.prepare(`
-            INSERT INTO transactions (user_id, type, amount, status, metadata)
-            VALUES (?, 'deposit', ?, 'pending', ?)
-        `).bind(user.sub, amount, JSON.stringify({ 
-            mp_id: mpData.id, 
-            qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
-            qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64
-        })).run();
-
-        return c.json({ 
-            success: true, 
-            payment_url: mpData.point_of_interaction?.transaction_data?.ticket_url,
-            qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
-            status: 'pending_payment'
-        });
-
-    } catch (e: any) {
-        return c.json({ error: `MP Error: ${e.message}` }, 500);
-    }
+  // STRICT MODE: NO SIMULATOR IF MP KEY EXISTS
+  if (!c.env.MERCADO_PAGO_ACCESS_TOKEN) {
+      return c.json({ error: 'Sistema de pagamento não configurado (MP Token Missing)' }, 500)
   }
 
-  // SIMULATOR FALLBACK (If no key or explicit sim)
   try {
-    await c.env.DB.prepare(`
-      INSERT INTO transactions (user_id, type, amount, status, metadata)
-      VALUES (?, 'deposit', ?, 'completed', ?)
-    `).bind(user.sub, amount, JSON.stringify({ method, provider: 'simulator', timestamp: Date.now() })).run()
+    const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${c.env.MERCADO_PAGO_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+            'X-Idempotency-Key': crypto.randomUUID()
+        },
+        body: JSON.stringify({
+            transaction_amount: Number(amount),
+            description: `Recarga Flayve - User ${user.sub}`,
+            payment_method_id: 'pix',
+            payer: { email: user.email },
+            installments: 1
+        })
+    });
+    
+    const mpData = await mpRes.json();
+    
+    if (!mpRes.ok) {
+        return c.json({ error: `MP Recused: ${mpData.message || 'Erro desconhecido'}` }, 500);
+    }
 
-    return c.json({ success: true, newBalance: amount, mode: 'simulator' })
+    // Save as PENDING (User MUST pay for it to become 'completed')
+    // We do NOT credit balance yet.
+    await c.env.DB.prepare(`
+        INSERT INTO transactions (user_id, type, amount, status, metadata)
+        VALUES (?, 'deposit', ?, 'pending', ?)
+    `).bind(user.sub, amount, JSON.stringify({ 
+        mp_id: mpData.id, 
+        qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
+        qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64
+    })).run();
+
+    return c.json({ 
+        success: true, 
+        payment_url: mpData.point_of_interaction?.transaction_data?.ticket_url,
+        qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
+        qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,
+        status: 'pending_payment'
+    });
+
   } catch (e: any) {
-    return c.json({ error: e.message }, 500)
+    return c.json({ error: `Server Error: ${e.message}` }, 500);
   }
 })
 

@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, Video, VideoOff, Mic, MicOff, PhoneOff } from 'lucide-react';
-import '@livekit/components-styles'; // CRITICAL: Import Styles
+import { Loader2, PhoneOff } from 'lucide-react';
+import '@livekit/components-styles';
 import { 
     LiveKitRoom, 
-    VideoConference, 
-    GridLayout, 
-    ParticipantTile, 
-    useTracks, 
     RoomAudioRenderer,
     ControlBar,
-    TrackReferenceOrPlaceholder
+    useTracks,
+    TrackReference,
+    VideoTrack
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 
@@ -22,9 +20,7 @@ export default function ActiveCallPage() {
 
   useEffect(() => {
     if (!token || !url) {
-        // Try to recover from localStorage if page refreshed? 
-        // For MVP, just redirect back to safety.
-        alert("Sessão de chamada encerrada ou inválida.");
+        alert("Sessão inválida.");
         navigate('/dashboard');
     }
   }, [token, url, navigate]);
@@ -32,58 +28,50 @@ export default function ActiveCallPage() {
   if (!token) return <div className="h-screen bg-black flex items-center justify-center"><Loader2 className="animate-spin text-white" /></div>;
 
   return (
-    <div className="h-screen w-screen bg-black relative">
+    <div className="h-screen w-screen bg-black overflow-hidden">
         <LiveKitRoom
             video={true}
             audio={true}
             token={token}
             serverUrl={url}
             data-lk-theme="default"
-            style={{ height: '100%' }}
+            style={{ height: '100vh', width: '100vw' }}
             onDisconnected={() => navigate('/dashboard')}
         >
-            {/* Custom Layout to ensure visibility */}
-            <div className="flex flex-col h-full">
-                <div className="flex-1 relative">
-                    <MyVideoGrid />
-                </div>
-                <div className="p-4 flex justify-center bg-dark-900/80 backdrop-blur-md absolute bottom-0 w-full z-50">
-                    <ControlBar 
-                        variation="minimal" 
-                        controls={{ 
-                            microphone: true, 
-                            camera: true, 
-                            screenShare: false, 
-                            chat: false 
-                        }} 
-                    />
-                    <button 
-                        onClick={() => navigate('/dashboard')} 
-                        className="ml-4 bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-full font-bold flex items-center gap-2"
-                    >
-                        <PhoneOff className="w-4 h-4" /> Sair
-                    </button>
-                </div>
-            </div>
+            <ManualVideoGrid />
             <RoomAudioRenderer />
+            
+            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 flex gap-4">
+                <ControlBar variation="minimal" controls={{ microphone: true, camera: true }} />
+                <button onClick={() => navigate('/dashboard')} className="bg-red-600 p-3 rounded-full text-white hover:bg-red-500">
+                    <PhoneOff />
+                </button>
+            </div>
         </LiveKitRoom>
     </div>
   );
 }
 
-// Custom Grid to debug visual issues
-function MyVideoGrid() {
-    const tracks = useTracks(
-        [
-            { source: Track.Source.Camera, withPlaceholder: true },
-            { source: Track.Source.ScreenShare, withPlaceholder: false },
-        ],
-        { onlySubscribed: false }, // Show even if not fully subbed yet
-    );
+function ManualVideoGrid() {
+    // Force get Camera tracks
+    const tracks = useTracks([Track.Source.Camera]);
 
     return (
-        <GridLayout tracks={tracks} style={{ height: '100%' }}>
-            <ParticipantTile />
-        </GridLayout>
+        <div className="grid grid-cols-1 md:grid-cols-2 h-full w-full bg-black">
+            {tracks.length === 0 && (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                    Aguardando vídeo... (Verifique permissões da câmera)
+                </div>
+            )}
+            {tracks.map((trackRef: TrackReference) => (
+                <div key={trackRef.participant.identity} className="relative border border-dark-800 bg-dark-900">
+                    {/* The Raw Video Renderer */}
+                    <VideoTrack trackRef={trackRef} className="w-full h-full object-cover" />
+                    <div className="absolute bottom-2 left-2 bg-black/50 px-2 rounded text-white text-sm">
+                        {trackRef.participant.name} {trackRef.participant.isLocal && "(Você)"}
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }

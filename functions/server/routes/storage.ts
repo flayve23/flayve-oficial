@@ -1,10 +1,7 @@
 import { Hono } from 'hono'
 import { verifySessionToken } from '../auth-utils'
 
-type Bindings = {
-  BUCKET: R2Bucket
-}
-
+type Bindings = { BUCKET: R2Bucket }
 const storage = new Hono<{ Bindings: Bindings }>()
 
 storage.use('*', async (c, next) => {
@@ -17,35 +14,34 @@ storage.use('*', async (c, next) => {
   await next()
 })
 
-storage.put('/upload/:folder', async (c) => {
+// PUT /api/storage/upload-base64 (New Robust Endpoint)
+storage.post('/upload-base64', async (c) => {
   const user = c.get('user') as any
-  const folder = c.req.param('folder')
   
   try {
-    const body = await c.req.parseBody().catch(() => null);
-    if (!body) return c.json({ error: 'Body parsing failed' }, 400);
+    const { image, folder } = await c.req.json() // Expect JSON: { image: "data:image/png;base64,..." }
+    
+    if (!image || !folder) return c.json({ error: 'Missing image data' }, 400)
+    if (!c.env.BUCKET) return c.json({ error: 'R2 Bucket not configured' }, 500)
 
-    const file = body['file']
-    if (!file || !(file instanceof File)) {
-      return c.json({ error: 'No file uploaded or file too large' }, 400)
-    }
-
-    if (!c.env.BUCKET) return c.json({ error: 'Storage not configured (R2 Missing)' }, 500)
-
-    const extension = file.name.split('.').pop()
+    // Decode Base64
+    const base64Data = image.split(',')[1]
+    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+    
+    const extension = image.substring(image.indexOf('/') + 1, image.indexOf(';'))
     const key = `${folder}/${user.sub}_${Date.now()}.${extension}`
 
-    await c.env.BUCKET.put(key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type }
+    await c.env.BUCKET.put(key, binaryData, {
+      httpMetadata: { contentType: `image/${extension}` }
     })
 
-    return c.json({ success: true, url: `/api/storage/file/${key}`, key })
+    return c.json({ success: true, url: `/api/storage/file/${key}` })
   } catch (e: any) {
-    return c.json({ error: e.message }, 500)
+    return c.json({ error: `Upload Error: ${e.message}` }, 500)
   }
 })
 
-// GET /api/storage/file/*
+// Keep GET for serving
 storage.get('/file/:folder/:filename', async (c) => {
   if (!c.env.BUCKET) return c.json({ error: 'Storage not configured' }, 500)
   const key = `${c.req.param('folder')}/${c.req.param('filename')}`
