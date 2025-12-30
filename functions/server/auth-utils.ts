@@ -153,6 +153,12 @@ export async function verifySessionToken(token: string, secret?: string): Promis
       return null;
     }
     
+    // ⚠️ V104: Bloquear usuários banidos
+    if (data.role === 'banned') {
+      console.warn('⚠️ Banned user attempted access');
+      return null;
+    }
+    
     return data;
   } catch (e) {
     console.error('❌ JWT Verification Error:', e);

@@ -27,7 +27,7 @@ type Bindings = {
 // FIX V93: Explicitly set basePath to '/api' so Hono matches the full URL correctly
 const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 
-// V104: CORS restrito para segurança
+// V104: CORS com suporte a múltiplos domínios Pages.dev
 const allowedOrigins = [
   'https://flayve.pages.dev',
   'https://www.flayve.com',
@@ -39,8 +39,13 @@ app.use('/*', cors({
   origin: (origin) => {
     // Se não há origin (requisições do próprio servidor), permitir
     if (!origin) return '*';
+    
+    // Permitir qualquer subdomínio do Pages.dev (flayve-xyz.pages.dev)
+    if (origin.endsWith('.pages.dev')) return origin;
+    
     // Se está na whitelist, permitir
     if (allowedOrigins.includes(origin)) return origin;
+    
     // Caso contrário, usar o primeiro da lista como fallback
     return allowedOrigins[0];
   },
