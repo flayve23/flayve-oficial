@@ -1,7 +1,9 @@
 name = "flayve"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "dist"
-migrations_dir = "migrations"  # RC1: Fix - Wrangler agora encontra as migrations
+
+# RC1: migrations_dir só funciona em deploy CLI, não no GitHub Auto Deploy
+# Para usar migrations, execute: npx wrangler d1 migrations apply webapp-production --remote
 
 # D1 Database binding
 [[d1_databases]]
@@ -14,27 +16,6 @@ database_id = "b6e327ad-e5d2-4d9c-bdff-2ce790d8933f"
 binding = "BUCKET"
 bucket_name = "flayve-assets"
 
-# Environment variables (configure via Cloudflare Dashboard > Pages > Settings > Environment variables)
-# 🔐 OBRIGATÓRIAS:
-# JWT_SECRET
-# LIVEKIT_API_KEY
-# LIVEKIT_API_SECRET
-# LIVEKIT_URL
-# MERCADO_PAGO_ACCESS_TOKEN
-# SENDGRID_API_KEY
-#
-# 🆕 RC1 - OPCIONAIS:
-# PUBLIC_URL (ex: https://flayve.pages.dev) - Para webhooks Mercado Pago
-# ALLOWED_ORIGINS (ex: https://www.seudominio.com,https://seudominio.com) - Domínios customizados
-
-[build]
-command = "npm run build"
-cwd = ""
-
-[build.upload]
-format = "directory"
-dir = "dist"
-
-# Advanced settings for Pages Functions
+# Pages Functions - Node.js compatibility
 [functions]
 compatibility_flags = ["nodejs_compat"]
