@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api.ts';
-import { Loader2, DollarSign, Users, Clock, Video, Plus, Trash2, Eye } from 'lucide-react';
+import { Loader2, DollarSign, Users, Clock, Video, Plus, Trash2, Eye, Share2, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function StreamerDashboard() {
   const [stats, setStats] = useState({ earnings: 0, views: 0, calls_duration: 0 });
   const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(true);
-  
-  // Stories State
   const [stories, setStories] = useState<any[]>([]);
   const [uploadingStory, setUploadingStory] = useState(false);
+  const [userId, setUserId] = useState<number>(0);
 
   useEffect(() => {
     fetchData();
@@ -18,13 +17,13 @@ export default function StreamerDashboard() {
 
   const fetchData = async () => {
     try {
-      const { data } = await api.get('/streamer/stats'); // Assume exists or mocked
+      const { data } = await api.get('/streamer/stats').catch(() => ({ data: { earnings:0, views:0, calls_duration:0 }})); 
       setStats(data || { earnings: 0, views: 0, calls_duration: 0 });
       const profileRes = await api.get('/profiles/me');
       setIsOnline(!!profileRes.data?.is_online);
+      setUserId(profileRes.data?.user_id);
       
-      // Fetch My Stories
-      const storiesRes = await api.get('/stories/me'); // New endpoint needed
+      const storiesRes = await api.get('/stories/me').catch(() => ({ data: [] })); 
       setStories(storiesRes.data || []);
     } catch (e) {
       console.error(e);
@@ -37,30 +36,25 @@ export default function StreamerDashboard() {
     try {
       const { data } = await api.post('/interactions/toggle-status');
       setIsOnline(data.is_online);
-    } catch (e) { alert('Erro ao alterar status'); }
+    } catch (e) { alert('Erro ao alterar status. Verifique sua conexão.'); }
   };
 
   const handlePostStory = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     setUploadingStory(true);
     const file = e.target.files[0];
-    
     try {
-        // 1. Upload to R2
         const formData = new FormData();
         formData.append('file', file);
         const uploadRes = await api.post('/storage/upload/stories', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
-
-        // 2. Create Story Record
         await api.post('/stories', {
             media_url: uploadRes.data.url,
             type: file.type.startsWith('video') ? 'video' : 'image'
         });
-
         alert('Story postado!');
-        fetchData(); // Reload
+        fetchData(); 
     } catch (e) {
         alert('Erro ao postar story.');
     } finally {
@@ -76,6 +70,12 @@ export default function StreamerDashboard() {
       } catch(e) { alert("Erro ao apagar"); }
   }
 
+  const copyProfileLink = () => {
+      const link = `${window.location.origin}/p/${userId}`;
+      navigator.clipboard.writeText(link);
+      alert('Link do Perfil Público copiado! Divulgue nas redes sociais.');
+  }
+
   if (loading) return <Loader2 className="animate-spin mx-auto mt-20" />;
 
   return (
@@ -86,18 +86,28 @@ export default function StreamerDashboard() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-gray-400 text-sm">Bem-vinda de volta!</p>
         </div>
-        <button 
-          onClick={toggleStatus}
-          className={`flex items-center gap-3 px-6 py-3 rounded-xl font-bold transition-all shadow-lg transform active:scale-95 ${
-            isOnline ? 'bg-green-500 hover:bg-green-400 text-white' : 'bg-dark-600 hover:bg-dark-500 text-gray-300'
-          }`}
-        >
-          <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-white animate-pulse' : 'bg-gray-500'}`} />
-          {isOnline ? 'VOCÊ ESTÁ ONLINE' : 'VOCÊ ESTÁ OFFLINE'}
-        </button>
+        
+        <div className="flex flex-wrap gap-3">
+            <button 
+                onClick={copyProfileLink}
+                className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95"
+            >
+                <Share2 className="w-4 h-4" /> Divulgar Perfil
+            </button>
+
+            <button 
+            onClick={toggleStatus}
+            className={`flex items-center gap-3 px-6 py-3 rounded-xl font-bold transition-all shadow-lg transform active:scale-95 ${
+                isOnline ? 'bg-green-500 hover:bg-green-400 text-white' : 'bg-dark-600 hover:bg-dark-500 text-gray-300'
+            }`}
+            >
+            <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-white animate-pulse' : 'bg-gray-500'}`} />
+            {isOnline ? 'ONLINE' : 'OFFLINE'}
+            </button>
+        </div>
       </div>
 
-      {/* Stories Management (New V96) */}
+      {/* Stories Management */}
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <div className="w-8 h-8 rounded-full border-2 border-primary-500 flex items-center justify-center">
@@ -107,7 +117,6 @@ export default function StreamerDashboard() {
         </h2>
         
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-dark-600">
-            {/* Botão de Adicionar */}
             <div className="flex-shrink-0 w-32 h-48 bg-dark-800 border-2 border-dashed border-dark-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary-500 hover:bg-dark-700 transition-all relative">
                 {uploadingStory ? (
                     <Loader2 className="animate-spin text-primary-500" />
@@ -126,7 +135,6 @@ export default function StreamerDashboard() {
                 />
             </div>
 
-            {/* Lista de Stories Ativos */}
             {stories.map(story => (
                 <div key={story.id} className="flex-shrink-0 w-32 h-48 bg-dark-800 rounded-xl border border-dark-700 relative group overflow-hidden">
                     <img src={story.media_url} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -136,9 +144,6 @@ export default function StreamerDashboard() {
                     >
                         <Trash2 className="w-3 h-3" />
                     </button>
-                    <div className="absolute bottom-2 left-2 flex items-center gap-1 text-xs font-bold text-white shadow-black drop-shadow-md">
-                        <Eye className="w-3 h-3" /> 0
-                    </div>
                 </div>
             ))}
         </div>

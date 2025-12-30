@@ -19,6 +19,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import LandingPage from './pages/public/LandingPage';
 import TermsPage from './pages/public/TermsPage';
 import ContactPage from './pages/public/ContactPage';
+import PublicProfile from './pages/public/PublicProfile'; // New
 import AgeGate from './components/ui/AgeGate';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
@@ -36,6 +37,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/p/:id" element={<PublicProfile />} /> {/* Public Profile Route */}
+          
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

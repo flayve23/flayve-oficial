@@ -7,96 +7,99 @@ type Bindings = {
 
 const profiles = new Hono<{ Bindings: Bindings }>()
 
-// Middleware de Autenticação (Opcional para ver feed, obrigatório para editar)
-profiles.use('/me/*', async (c, next) => {
+// Public Profile (No Auth needed)
+profiles.get('/public/:id', async (c) => {
+  const id = c.req.param('id')
+  const profile = await c.env.DB.prepare(`
+    SELECT p.*, u.username, u.id as user_id
+    FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE u.id = ?
+  `).bind(id).first()
+  
+  if (!profile) return c.json({ error: 'Perfil não encontrado' }, 404)
+  return c.json(profile)
+})
+
+// Protected Routes Middleware
+profiles.use('*', async (c, next) => {
+  // Skip middleware for the public route above if Hono routing logic requires it (usually handled by order)
+  // But since we mount it, let's just do auth check inside handlers or ensure order is correct.
+  // Actually, Hono middleware matches *all* requests to this router if used at top.
+  // To fix, we move the middleware below public routes, or check path.
+  // Better: separate public and private logic or check path in middleware.
+  
+  if (c.req.path.includes('/public/')) {
+      await next();
+      return;
+  }
+
   const authHeader = c.req.header('Authorization')
   if (!authHeader) return c.json({ error: 'Unauthorized' }, 401)
-  
   const token = authHeader.split(' ')[1]
   const payload = await verifySessionToken(token)
-  
-  if (!payload) return c.json({ error: 'Invalid token' }, 401)
-  
+  if (!payload) return c.json({ error: 'Invalid token' }, 403)
   c.set('user', payload)
   await next()
 })
 
-// GET /api/profiles - Listar Streamers (Feed)
-profiles.get('/', async (c) => {
-  // Query para buscar usuários streamers e seus perfis
-  // Retorna apenas dados públicos
-  const query = `
-    SELECT 
-      u.id, 
-      u.username, 
-      p.photo_url, 
-      p.bio, 
-      p.price_per_minute, 
-      p.is_online, 
-      p.average_rating,
-      p.total_ratings
-    FROM users u
-    JOIN profiles p ON u.id = p.user_id
-    WHERE u.role = 'streamer'
-    ORDER BY p.is_online DESC, p.average_rating DESC
-    LIMIT 50
-  `
-  
-  try {
-    const { results } = await c.env.DB.prepare(query).run()
-    return c.json(results)
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// GET /api/profiles/me - Meu Perfil (Streamer)
 profiles.get('/me', async (c) => {
   const user = c.get('user') as any
-  
-  const query = `
-    SELECT * FROM profiles WHERE user_id = ?
-  `
-  const profile = await c.env.DB.prepare(query).bind(user.sub).first()
-  
-  if (!profile) return c.json({ error: 'Profile not found' }, 404)
-  
+  const profile = await c.env.DB.prepare(`
+    SELECT p.*, u.username, u.email, u.role, u.id as user_id
+    FROM users u
+    LEFT JOIN profiles p ON u.id = p.user_id
+    WHERE u.id = ?
+  `).bind(user.sub).first()
   return c.json(profile)
 })
 
-// PUT /api/profiles/me - Atualizar Perfil
 profiles.put('/me', async (c) => {
   const user = c.get('user') as any
   const body = await c.req.json()
   
-  // Campos permitidos para update
-  const { bio, price_per_minute, is_online, tags, photo_url } = body
-
-  // Construção dinâmica da query é complexa com D1 cru, vamos fazer um update fixo por enquanto
-  // Idealmente usaríamos um query builder como Kysely ou Drizzle aqui
+  // Upsert profile
+  const existing = await c.env.DB.prepare('SELECT id FROM profiles WHERE user_id = ?').bind(user.sub).first()
   
-  try {
+  if (existing) {
     await c.env.DB.prepare(`
       UPDATE profiles 
-      SET 
-        bio = COALESCE(?, bio),
-        price_per_minute = COALESCE(?, price_per_minute),
-        is_online = COALESCE(?, is_online),
-        photo_url = COALESCE(?, photo_url),
-        updated_at = CURRENT_TIMESTAMP
+      SET bio_name = ?, bio_description = ?, price_per_minute = ?, is_public = ?, photo_url = ?
       WHERE user_id = ?
     `).bind(
-      bio, 
-      price_per_minute, 
-      is_online, 
-      photo_url,
+      body.bio_name, 
+      body.bio_description, 
+      body.price_per_minute, 
+      body.is_public ? 1 : 0, 
+      body.photo_url, 
       user.sub
     ).run()
-
-    return c.json({ success: true })
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
+  } else {
+    await c.env.DB.prepare(`
+      INSERT INTO profiles (user_id, bio_name, bio_description, price_per_minute, is_public, photo_url)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      user.sub, 
+      body.bio_name, 
+      body.bio_description, 
+      body.price_per_minute, 
+      body.is_public ? 1 : 0, 
+      body.photo_url
+    ).run()
   }
+  
+  return c.json({ success: true })
+})
+
+// List for Explorer
+profiles.get('/', async (c) => {
+  const list = await c.env.DB.prepare(`
+    SELECT p.*, u.username, u.id as user_id 
+    FROM profiles p 
+    JOIN users u ON p.user_id = u.id 
+    WHERE u.role = 'streamer' AND p.is_public = 1
+  `).all()
+  return c.json(list.results)
 })
 
 export default profiles

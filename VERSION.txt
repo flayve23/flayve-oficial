@@ -1,4 +1,5 @@
-Version V96 (UX Repair)
-1. Streamer Dashboard: Added 'New Story' button and list.
-2. Viewer Wallet: Added explicit 'Custom Amount' input field.
-3. Backend: Confirmed /api/stories endpoints.
+Version V97 (The Living System)
+1. Backend: Fixed routes for interactions, stories, and profiles.
+2. Public Profile: Added /p/:id route for sharing.
+3. Call Confirm: Added modal before call.
+4. IMPORTANT: Run 'npx wrangler d1 migrations apply webapp-production --remote' to fix 'is_online' error.

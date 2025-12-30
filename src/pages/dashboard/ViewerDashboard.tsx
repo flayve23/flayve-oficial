@@ -1,36 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api.ts';
-import { Search, Star, Video, Loader2, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search, Star, Video, Loader2, Heart, AlertTriangle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import StoriesBar from '../../components/ui/StoriesBar';
 
 export default function ViewerDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [streamers, setStreamers] = useState<any[]>([]);
-  const [favorites, setFavorites] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
+  
+  // Confirmation Modal State
+  const [confirmCall, setConfirmCall] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
-  }, [viewMode]);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      if (viewMode === 'all') {
-        const { data } = await api.get('/profiles');
-        setStreamers(data);
-      } else {
-        const { data } = await api.get('/interactions/favorites');
-        setStreamers(data);
-      }
-      
-      // Carregar IDs dos favoritos para marcar os corações
-      // (Em produção faríamos um endpoint melhor, aqui vamos simular ou carregar separadamente)
-      // Vamos assumir que a lista de favoritos retorna os IDs
+      const { data } = await api.get('/profiles');
+      setStreamers(data);
     } catch (error) {
       console.error('Erro', error);
     } finally {
@@ -38,20 +31,12 @@ export default function ViewerDashboard() {
     }
   };
 
-  const toggleFavorite = async (e: React.MouseEvent, streamerId: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      const { data } = await api.post('/interactions/favorite', { streamer_id: streamerId });
-      if (data.favorited) {
-        setFavorites([...favorites, streamerId]);
-      } else {
-        setFavorites(favorites.filter(id => id !== streamerId));
-        if (viewMode === 'favorites') {
-            setStreamers(streamers.filter(s => s.user_id !== streamerId)); // Remove da lista visualmente
-        }
-      }
-    } catch (e) { alert('Erro ao favoritar'); }
+  const initiateCall = (streamer: any) => {
+      setConfirmCall(streamer);
+  };
+
+  const proceedToCall = () => {
+      navigate(`/dashboard/call/${confirmCall.user_id}`);
   };
 
   const filteredStreamers = streamers.filter(s => 
@@ -59,29 +44,44 @@ export default function ViewerDashboard() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in relative">
       <StoriesBar />
       
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
-          <h1 className="text-2xl font-bold text-white">Explorar</h1>
-          
-          <div className="flex bg-dark-800 p-1 rounded-lg border border-dark-700">
-            <button 
-              onClick={() => setViewMode('all')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'all' ? 'bg-dark-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-            >
-              Todos
-            </button>
-            <button 
-              onClick={() => setViewMode('favorites')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'favorites' ? 'bg-primary-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-            >
-              Favoritos ❤️
-            </button>
+      {/* Confirmation Modal */}
+      {confirmCall && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-dark-800 border border-dark-600 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+                  <h3 className="text-xl font-bold text-white mb-2">Iniciar Chamada?</h3>
+                  <div className="bg-dark-900 p-4 rounded-xl mb-4 border border-dark-700">
+                      <div className="flex justify-between mb-2">
+                          <span className="text-gray-400">Modelo</span>
+                          <span className="text-white font-bold">{confirmCall.username}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <span className="text-gray-400">Preço</span>
+                          <span className="text-primary-400 font-bold text-lg">R$ {confirmCall.price_per_minute}/min</span>
+                      </div>
+                  </div>
+                  <div className="flex items-start gap-2 mb-6">
+                      <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                      <p className="text-xs text-gray-400">
+                          Ao confirmar, você concorda com a cobrança por minuto. Certifique-se de ter saldo.
+                      </p>
+                  </div>
+                  <div className="flex gap-3">
+                      <button onClick={() => setConfirmCall(null)} className="flex-1 py-3 bg-dark-700 rounded-xl text-gray-300 font-bold hover:bg-dark-600">
+                          Cancelar
+                      </button>
+                      <button onClick={proceedToCall} className="flex-1 py-3 bg-green-600 rounded-xl text-white font-bold hover:bg-green-500 shadow-lg shadow-green-900/20">
+                          Confirmar e Ligar
+                      </button>
+                  </div>
+              </div>
           </div>
-        </div>
+      )}
 
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-white">Explorar</h1>
         <div className="relative">
           <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" />
           <input 
@@ -102,22 +102,13 @@ export default function ViewerDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {filteredStreamers.map((streamer) => (
             <div key={streamer.id} className="group relative bg-dark-800 rounded-2xl overflow-hidden border border-dark-700 shadow-lg hover:border-primary-500/30 transition-all">
-              <Link to={`/dashboard/call/${streamer.user_id || streamer.id}`} className="block relative aspect-[3/4] bg-dark-700">
+              <div className="relative aspect-[3/4] bg-dark-700 cursor-pointer" onClick={() => initiateCall(streamer)}>
                 <img 
                   src={streamer.photo_url || `https://ui-avatars.com/api/?name=${streamer.username}&background=random&size=400`} 
                   alt={streamer.username} 
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 
-                <div className="absolute top-3 right-3 z-20">
-                    <button 
-                        onClick={(e) => toggleFavorite(e, streamer.user_id || streamer.id)}
-                        className="p-2 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-primary-500 transition-colors"
-                    >
-                        <Heart className="h-5 w-5" />
-                    </button>
-                </div>
-
                 <div className="absolute top-3 left-3 z-10">
                   {streamer.is_online ? (
                     <div className="flex items-center gap-1.5 bg-green-500/90 backdrop-blur-md px-2.5 py-1 rounded-full">
@@ -139,19 +130,19 @@ export default function ViewerDashboard() {
                     <span className="text-xs font-bold text-gray-200">5.0</span>
                   </div>
                 </div>
-              </Link>
+              </div>
               
               <div className="p-3 bg-dark-800 border-t border-dark-700 flex items-center justify-between gap-3">
                 <div className="flex flex-col">
                     <span className="text-[10px] text-gray-400 uppercase font-semibold">Valor</span>
                     <span className="text-sm font-bold text-white">R$ {streamer.price_per_minute}/min</span>
                 </div>
-                <Link 
-                    to={`/dashboard/call/${streamer.user_id || streamer.id}`}
+                <button 
+                    onClick={() => initiateCall(streamer)}
                     className="flex-1 bg-primary-600 hover:bg-primary-500 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                 >
                     <Video className="h-4 w-4" /> Ligar
-                </Link>
+                </button>
               </div>
             </div>
           ))}
