@@ -1,5 +1,4 @@
-Version V99 (Final Polish)
-1. Profiles: Added filter 'AND is_online = 1' for Explorer.
-2. Profiles: Fixed SAVE error by using robust Insert/Update logic.
-3. Wallet: Removed strict CPF validation to allow Simulator to work.
-4. Storage: Added safety checks for R2 binding.
+Version V100 (The Truth Update)
+1. CallPage: REMOVED auto-redirect on error. Now shows error message on screen.
+2. Profiles: Added robust UPSERT logic to fix Save Error.
+3. Wallet: Added REAL Mercado Pago logic (checks ENV key).
