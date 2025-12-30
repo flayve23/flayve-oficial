@@ -1,142 +1,155 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api.ts';
-import { Loader2, CreditCard, Wallet, ArrowUpRight, History } from 'lucide-react';
-
-interface Transaction {
-  id: number;
-  type: string;
-  amount: number;
-  status: string;
-  created_at: string;
-}
+import { Wallet, History, ArrowUpRight, ArrowDownLeft, Plus, CreditCard, ShieldCheck } from 'lucide-react';
+import RechargeModal from '../../components/ui/RechargeModal';
 
 export default function ViewerWallet() {
   const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [customAmount, setCustomAmount] = useState(''); // Estado para o input direto
 
   useEffect(() => {
-    fetchWalletData();
+    fetchWallet();
   }, []);
 
-  const fetchWalletData = async () => {
+  const fetchWallet = async () => {
     try {
-      const [balanceRes, historyRes] = await Promise.all([
-        api.get('/wallet/balance'),
-        api.get('/wallet/transactions')
-      ]);
-      setBalance(balanceRes.data.balance);
-      setTransactions(historyRes.data);
+      const balRes = await api.get('/wallet/balance');
+      setBalance(balRes.data.balance);
+      const txRes = await api.get('/wallet/transactions');
+      setTransactions(txRes.data);
     } catch (error) {
-      console.error('Erro ao carregar carteira:', error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRecharge = async (amount: number) => {
-    setProcessing(true);
+  const handleQuickRecharge = async (value: number) => {
+    if (!confirm(`Confirmar recarga simulada de R$ ${value}?`)) return;
     try {
-      // Simulação de pagamento
-      await api.post('/wallet/recharge', {
-        amount,
-        method: 'simulator'
-      });
-      
-      // Atualizar dados
-      await fetchWalletData();
-      alert(`Recarga de R$ ${amount.toFixed(2)} realizada com sucesso!`);
-    } catch (error) {
-      alert('Erro ao processar recarga.');
-    } finally {
-      setProcessing(false);
-    }
+      await api.post('/wallet/recharge', { amount: value, method: 'pix', cpf: '00000000000' });
+      alert('Recarga realizada!');
+      fetchWallet();
+    } catch (e) { alert('Erro na recarga'); }
   };
 
-  if (loading) {
-    return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary-500" /></div>;
-  }
+  const handleCustomRecharge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = parseFloat(customAmount);
+    if (!value || value < 5) return alert('Mínimo R$ 5,00');
+    handleQuickRecharge(value);
+    setCustomAmount('');
+  };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold text-white">Minha Carteira</h1>
-
-      {/* Balance Card */}
-      <div className="bg-gradient-to-r from-primary-900 to-dark-800 p-8 rounded-2xl border border-primary-500/30 relative overflow-hidden">
-        <div className="relative z-10">
-          <p className="text-primary-200 font-medium mb-1">Saldo Disponível</p>
-          <h2 className="text-4xl font-black text-white">R$ {balance.toFixed(2)}</h2>
-        </div>
-        <Wallet className="absolute right-8 bottom-8 h-32 w-32 text-primary-500/10 rotate-12" />
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Wallet className="text-primary-500" /> Minha Carteira
+        </h1>
       </div>
 
-      {/* Recharge Options */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-white">Adicionar Saldo</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[50, 100, 250, 500].map((amount) => (
-            <button
-              key={amount}
-              onClick={() => handleRecharge(amount)}
-              disabled={processing}
-              className="bg-dark-800 hover:bg-dark-700 border border-dark-700 hover:border-primary-500 p-6 rounded-xl transition-all group text-left"
+      {/* Cartão de Saldo e Recarga Rápida */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Lado Esquerdo: Saldo */}
+        <div className="bg-gradient-to-br from-primary-900/50 to-dark-900 p-8 rounded-3xl border border-primary-500/20 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-4 -translate-y-4">
+            <Wallet className="w-32 h-32 text-white" />
+          </div>
+          <p className="text-primary-200 font-medium mb-2">Saldo Atual</p>
+          <h2 className="text-5xl font-black text-white mb-6">R$ {balance.toFixed(2)}</h2>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="bg-white text-primary-900 px-6 py-3 rounded-xl font-bold hover:bg-primary-50 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" /> Opções de Recarga
+          </button>
+        </div>
+
+        {/* Lado Direito: Input Direto (A Correção Solicitada) */}
+        <div className="bg-dark-800 p-8 rounded-3xl border border-dark-700 flex flex-col justify-center">
+          <h3 className="text-lg font-bold text-white mb-4">Recarga Rápida</h3>
+          
+          <form onSubmit={handleCustomRecharge} className="space-y-4">
+            <div>
+                <label className="text-xs text-gray-400 mb-1 block">Digite o valor que quiser:</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+                    <input 
+                        type="number" 
+                        step="0.01"
+                        min="5"
+                        placeholder="0,00"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        className="w-full bg-dark-900 border border-dark-600 rounded-xl py-4 pl-12 pr-4 text-xl text-white font-bold focus:border-primary-500 outline-none transition-colors"
+                    />
+                </div>
+            </div>
+            <button 
+                type="submit"
+                disabled={!customAmount}
+                className="w-full bg-green-600 hover:bg-green-500 text-white py-4 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
             >
-              <p className="text-gray-400 text-sm">Pacote</p>
-              <p className="text-2xl font-bold text-white group-hover:text-primary-400">R$ {amount}</p>
-              <div className="mt-4 flex items-center text-xs text-primary-500 font-bold uppercase tracking-wider">
-                Comprar <ArrowUpRight className="ml-1 h-3 w-3" />
-              </div>
+                <CreditCard className="w-5 h-5" /> Pagar Agora
             </button>
-          ))}
+          </form>
+
+          <div className="mt-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+             {[20, 50, 100].map(val => (
+                 <button 
+                    key={val}
+                    onClick={() => handleQuickRecharge(val)}
+                    className="flex-1 min-w-[80px] py-2 border border-dark-600 rounded-lg text-gray-300 hover:border-primary-500 hover:text-white transition-colors text-sm font-medium"
+                 >
+                    + R$ {val}
+                 </button>
+             ))}
+          </div>
         </div>
       </div>
 
-      {/* Transaction History */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <History className="h-5 w-5 text-gray-400" />
-          <h3 className="text-lg font-bold text-white">Histórico Recente</h3>
+      {/* Histórico */}
+      <div className="bg-dark-800 rounded-2xl border border-dark-700 overflow-hidden">
+        <div className="p-6 border-b border-dark-700 flex items-center gap-2">
+          <History className="text-gray-400 w-5 h-5" />
+          <h3 className="font-bold text-white">Histórico de Transações</h3>
         </div>
-        
-        <div className="bg-dark-800 rounded-xl border border-dark-700 overflow-hidden">
-          {transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">Nenhuma transação encontrada.</div>
-          ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="bg-dark-900/50 text-gray-400">
-                <tr>
-                  <th className="p-4 font-medium">Tipo</th>
-                  <th className="p-4 font-medium">Data</th>
-                  <th className="p-4 font-medium">Valor</th>
-                  <th className="p-4 font-medium">Status</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-dark-900/50 text-gray-400 text-sm">
+              <tr>
+                <th className="p-4">Data</th>
+                <th className="p-4">Tipo</th>
+                <th className="p-4 text-right">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dark-700">
+              {transactions.map((tx: any) => (
+                <tr key={tx.id} className="text-sm hover:bg-dark-700/50">
+                  <td className="p-4 text-gray-400">
+                    {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td className="p-4">
+                    <span className="flex items-center gap-2 text-white capitalize">
+                      {tx.type === 'deposit' ? <ArrowDownLeft className="text-green-500 w-4 h-4" /> : <ArrowUpRight className="text-red-500 w-4 h-4" />}
+                      {tx.type === 'deposit' ? 'Recarga' : 'Consumo'}
+                    </span>
+                  </td>
+                  <td className={`p-4 text-right font-bold ${tx.type === 'deposit' ? 'text-green-500' : 'text-red-500'}`}>
+                    {tx.type === 'deposit' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-dark-700">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-dark-700/50">
-                    <td className="p-4">
-                      {tx.type === 'deposit' ? 'Recarga' : 
-                       tx.type === 'call_payment' ? 'Pagamento Chamada' : tx.type}
-                    </td>
-                    <td className="p-4 text-gray-400">
-                      {new Date(tx.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className={`p-4 font-bold ${tx.type === 'deposit' ? 'text-green-400' : 'text-red-400'}`}>
-                      {tx.type === 'deposit' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2)}
-                    </td>
-                    <td className="p-4">
-                      <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-500 uppercase">
-                        {tx.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      <RechargeModal isOpen={showModal} onClose={() => setShowModal(false)} onSuccess={fetchWallet} />
     </div>
   );
 }

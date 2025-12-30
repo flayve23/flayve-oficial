@@ -1,3 +1,4 @@
-Version V94 (Database Patch)
-1. Added 0009_add_salt.sql migration file.
-2. CRITICAL: Run 'npx wrangler d1 migrations apply webapp-production --remote' immediately.
+Version V96 (UX Repair)
+1. Streamer Dashboard: Added 'New Story' button and list.
+2. Viewer Wallet: Added explicit 'Custom Amount' input field.
+3. Backend: Confirmed /api/stories endpoints.

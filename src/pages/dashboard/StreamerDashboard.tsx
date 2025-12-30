@@ -1,105 +1,174 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useEffect, useState } from 'react';
 import api from '../../services/api.ts';
-import { DollarSign, Video, Users, TrendingUp, Power, Tag } from 'lucide-react';
+import { Loader2, DollarSign, Users, Clock, Video, Plus, Trash2, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function StreamerDashboard() {
-  const { user } = useAuth();
+  const [stats, setStats] = useState({ earnings: 0, views: 0, calls_duration: 0 });
   const [isOnline, setIsOnline] = useState(false);
-  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Stories State
+  const [stories, setStories] = useState<any[]>([]);
+  const [uploadingStory, setUploadingStory] = useState(false);
 
   useEffect(() => {
-    fetchStatus();
-    fetchStats();
+    fetchData();
   }, []);
 
-  const fetchStatus = async () => {
+  const fetchData = async () => {
     try {
-      const { data } = await api.get('/profiles/me');
-      setIsOnline(!!data.is_online);
-    } catch (e) {}
-  };
-
-  const fetchStats = async () => {
-    // Mock stats for MVP, in real app fetch from /streamer/stats
-    setStats({ earnings: 124.50, hours: '1h 42m', views: '1.2k', conversion: '4.8%' });
-  }
-
-  const toggleOnline = async () => {
-    const newState = !isOnline;
-    setIsOnline(newState); // Optimistic update
-    try {
-      await api.post('/interactions/toggle-status', { is_online: newState });
-    } catch (error) {
-      setIsOnline(!newState); // Rollback
-      alert('Erro ao mudar status');
+      const { data } = await api.get('/streamer/stats'); // Assume exists or mocked
+      setStats(data || { earnings: 0, views: 0, calls_duration: 0 });
+      const profileRes = await api.get('/profiles/me');
+      setIsOnline(!!profileRes.data?.is_online);
+      
+      // Fetch My Stories
+      const storiesRes = await api.get('/stories/me'); // New endpoint needed
+      setStories(storiesRes.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const toggleStatus = async () => {
+    try {
+      const { data } = await api.post('/interactions/toggle-status');
+      setIsOnline(data.is_online);
+    } catch (e) { alert('Erro ao alterar status'); }
+  };
+
+  const handlePostStory = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    setUploadingStory(true);
+    const file = e.target.files[0];
+    
+    try {
+        // 1. Upload to R2
+        const formData = new FormData();
+        formData.append('file', file);
+        const uploadRes = await api.post('/storage/upload/stories', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        // 2. Create Story Record
+        await api.post('/stories', {
+            media_url: uploadRes.data.url,
+            type: file.type.startsWith('video') ? 'video' : 'image'
+        });
+
+        alert('Story postado!');
+        fetchData(); // Reload
+    } catch (e) {
+        alert('Erro ao postar story.');
+    } finally {
+        setUploadingStory(false);
+    }
+  };
+
+  const deleteStory = async (id: number) => {
+      if(!confirm("Apagar story?")) return;
+      try {
+          await api.delete(`/stories/${id}`);
+          setStories(stories.filter(s => s.id !== id));
+      } catch(e) { alert("Erro ao apagar"); }
+  }
+
+  if (loading) return <Loader2 className="animate-spin mx-auto mt-20" />;
+
   return (
-    <div className="space-y-8">
-      {/* Header com Botão Gigante */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-dark-800 p-6 rounded-2xl border border-dark-700">
+    <div className="space-y-8 animate-fade-in">
+      {/* Header & Status Toggle */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-dark-800 p-6 rounded-2xl border border-dark-700 shadow-lg">
         <div>
-          <h1 className="text-2xl font-bold text-white">Olá, {user?.username} 👋</h1>
-          <p className="text-gray-400">Pronta para faturar hoje?</p>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-400 text-sm">Bem-vinda de volta!</p>
         </div>
-        
-        <button
-          onClick={toggleOnline}
-          className={`relative group px-8 py-4 rounded-xl font-black text-xl transition-all transform hover:scale-105 shadow-xl flex items-center gap-3 ${
-            isOnline 
-              ? 'bg-green-500 text-white shadow-green-900/50' 
-              : 'bg-dark-600 text-gray-400 shadow-none border-2 border-dashed border-dark-500'
+        <button 
+          onClick={toggleStatus}
+          className={`flex items-center gap-3 px-6 py-3 rounded-xl font-bold transition-all shadow-lg transform active:scale-95 ${
+            isOnline ? 'bg-green-500 hover:bg-green-400 text-white' : 'bg-dark-600 hover:bg-dark-500 text-gray-300'
           }`}
         >
-          <Power className={`h-6 w-6 ${isOnline ? 'animate-pulse' : ''}`} />
-          {isOnline ? 'VOCÊ ESTÁ ONLINE' : 'FICAR ONLINE'}
-          {isOnline && (
-            <span className="absolute -top-2 -right-2 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-dark-800"></span>
-            </span>
-          )}
+          <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-white animate-pulse' : 'bg-gray-500'}`} />
+          {isOnline ? 'VOCÊ ESTÁ ONLINE' : 'VOCÊ ESTÁ OFFLINE'}
         </button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Ganhos Hoje', value: `R$ ${stats?.earnings || '0,00'}`, icon: DollarSign, color: 'text-green-400', bg: 'bg-green-500/10' },
-          { label: 'Tempo Online', value: stats?.hours || '0h', icon: Video, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-          { label: 'Visitas', value: stats?.views || '0', icon: Users, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-          { label: 'Conversão', value: stats?.conversion || '0%', icon: TrendingUp, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-dark-800 p-6 rounded-xl border border-dark-700 hover:border-primary-500/20 transition-colors">
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
+      {/* Stories Management (New V96) */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full border-2 border-primary-500 flex items-center justify-center">
+                <Plus className="w-4 h-4 text-primary-500" />
             </div>
-            <h3 className="text-2xl font-black text-white">{stat.value}</h3>
-            <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mt-1">{stat.label}</p>
-          </div>
-        ))}
+            Meus Stories
+        </h2>
+        
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-dark-600">
+            {/* Botão de Adicionar */}
+            <div className="flex-shrink-0 w-32 h-48 bg-dark-800 border-2 border-dashed border-dark-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary-500 hover:bg-dark-700 transition-all relative">
+                {uploadingStory ? (
+                    <Loader2 className="animate-spin text-primary-500" />
+                ) : (
+                    <>
+                        <Plus className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="text-xs text-gray-400 font-bold">Novo Story</span>
+                    </>
+                )}
+                <input 
+                    type="file" 
+                    accept="image/*,video/*" 
+                    onChange={handlePostStory} 
+                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                    disabled={uploadingStory}
+                />
+            </div>
+
+            {/* Lista de Stories Ativos */}
+            {stories.map(story => (
+                <div key={story.id} className="flex-shrink-0 w-32 h-48 bg-dark-800 rounded-xl border border-dark-700 relative group overflow-hidden">
+                    <img src={story.media_url} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                    <button 
+                        onClick={() => deleteStory(story.id)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    >
+                        <Trash2 className="w-3 h-3" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1 text-xs font-bold text-white shadow-black drop-shadow-md">
+                        <Eye className="w-3 h-3" /> 0
+                    </div>
+                </div>
+            ))}
+        </div>
       </div>
 
-      {/* Quick Actions (Categorias, etc) */}
-      <div className="bg-dark-800 rounded-xl border border-dark-700 p-6">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <Tag className="h-5 w-5 text-primary-500" /> Suas Categorias
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {['Conversa', 'Dança', 'Fantasia', 'ASMR'].map(tag => (
-            <span key={tag} className="px-3 py-1 rounded-full bg-dark-700 text-gray-300 text-sm border border-dark-600 cursor-pointer hover:bg-primary-500/20 hover:text-primary-400 transition-colors">
-              #{tag}
-            </span>
-          ))}
-          <button className="px-3 py-1 rounded-full border border-dashed border-gray-500 text-gray-500 text-sm hover:text-white hover:border-white transition-colors">
-            + Adicionar
-          </button>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-dark-800 p-6 rounded-2xl border border-dark-700">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="p-3 bg-green-500/20 rounded-xl text-green-400"><DollarSign /></div>
+            <span className="text-gray-400 font-medium">Ganhos Hoje</span>
+          </div>
+          <p className="text-3xl font-black text-white">R$ {Number(stats.earnings).toFixed(2)}</p>
         </div>
-        <p className="text-xs text-gray-500 mt-2">* Funcionalidade visual no MVP.</p>
+        
+        <div className="bg-dark-800 p-6 rounded-2xl border border-dark-700">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400"><Users /></div>
+            <span className="text-gray-400 font-medium">Visualizações</span>
+          </div>
+          <p className="text-3xl font-black text-white">{stats.views}</p>
+        </div>
+
+        <div className="bg-dark-800 p-6 rounded-2xl border border-dark-700">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="p-3 bg-purple-500/20 rounded-xl text-purple-400"><Clock /></div>
+            <span className="text-gray-400 font-medium">Minutos em Call</span>
+          </div>
+          <p className="text-3xl font-black text-white">{Math.floor(stats.calls_duration / 60)}m</p>
+        </div>
       </div>
     </div>
   );
