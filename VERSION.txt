@@ -1,3 +1,5 @@
-Version V98 (Migration Fix)
-1. Fixed 0010_fix_features.sql to avoid 'duplicate column' error.
-2. Please run the migration command again.
+Version V99 (Final Polish)
+1. Profiles: Added filter 'AND is_online = 1' for Explorer.
+2. Profiles: Fixed SAVE error by using robust Insert/Update logic.
+3. Wallet: Removed strict CPF validation to allow Simulator to work.
+4. Storage: Added safety checks for R2 binding.

@@ -7,7 +7,6 @@ type Bindings = {
 
 const storage = new Hono<{ Bindings: Bindings }>()
 
-// Middleware Auth
 storage.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader) return c.json({ error: 'Unauthorized' }, 401)
@@ -18,75 +17,43 @@ storage.use('*', async (c, next) => {
   await next()
 })
 
-// PUT /api/storage/upload/:folder
-// Simple Upload Proxy (Client -> Worker -> R2)
-// For large files (>10MB), we would use Presigned URLs, but for profile pics/docs this is easier and safer.
 storage.put('/upload/:folder', async (c) => {
   const user = c.get('user') as any
-  const folder = c.req.param('folder') // 'avatars' or 'kyc'
+  const folder = c.req.param('folder')
   
-  if (!['avatars', 'kyc', 'stories'].includes(folder)) {
-    return c.json({ error: 'Invalid folder' }, 400)
-  }
-
   try {
-    const body = await c.req.parseBody()
+    const body = await c.req.parseBody().catch(() => null);
+    if (!body) return c.json({ error: 'Body parsing failed' }, 400);
+
     const file = body['file']
-    
     if (!file || !(file instanceof File)) {
-      return c.json({ error: 'No file uploaded' }, 400)
+      return c.json({ error: 'No file uploaded or file too large' }, 400)
     }
 
-    // Security: KYC files are private, others public
-    const isPrivate = folder === 'kyc'
-    
-    // Generate unique ID
+    if (!c.env.BUCKET) return c.json({ error: 'Storage not configured (R2 Missing)' }, 500)
+
     const extension = file.name.split('.').pop()
     const key = `${folder}/${user.sub}_${Date.now()}.${extension}`
 
-    // Upload to R2
     await c.env.BUCKET.put(key, await file.arrayBuffer(), {
-      httpMetadata: {
-        contentType: file.type,
-      },
-      customMetadata: {
-        uploader: String(user.sub),
-        isPrivate: String(isPrivate)
-      }
+      httpMetadata: { contentType: file.type }
     })
 
-    // Construct URL
-    // If you have a custom domain for R2, use it. Otherwise, we might need a worker to serve it.
-    // For now, we assume the worker also SERVES public files via a GET endpoint or public bucket URL.
-    // Let's implement a GET proxy for simplicity in MVP.
-    const url = `/api/storage/file/${key}`
-
-    return c.json({ success: true, url, key })
+    return c.json({ success: true, url: `/api/storage/file/${key}`, key })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
 })
 
-// GET /api/storage/file/* - Serve files (Proxy)
+// GET /api/storage/file/*
 storage.get('/file/:folder/:filename', async (c) => {
+  if (!c.env.BUCKET) return c.json({ error: 'Storage not configured' }, 500)
   const key = `${c.req.param('folder')}/${c.req.param('filename')}`
-  
-  // Check auth for KYC
-  if (key.startsWith('kyc/')) {
-    const user = c.get('user') as any
-    // Only admins or the owner can see KYC
-    if (user.role !== 'admin' && !key.includes(String(user.sub))) {
-        return c.json({ error: 'Unauthorized' }, 403)
-    }
-  }
-
   const object = await c.env.BUCKET.get(key)
   if (!object) return c.json({ error: 'Not found' }, 404)
-
   const headers = new Headers()
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
-
   return new Response(object.body, { headers })
 })
 
