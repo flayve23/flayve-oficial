@@ -1,6 +1,6 @@
--- Ensure profiles has is_online
-ALTER TABLE profiles ADD COLUMN is_online BOOLEAN DEFAULT 0;
--- Ensure stories table exists
+-- Migration Fixed: is_online already exists, so we skipped adding it.
+
+-- Ensure stories table exists (This is what we really need)
 CREATE TABLE IF NOT EXISTS stories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
