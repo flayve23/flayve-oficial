@@ -1,5 +1,4 @@
-Version V101 (Ringtone Update)
-1. Call Signaling: Implemented ringing logic (Request -> Poll -> Answer).
-2. Frontend: Added IncomingCallModal (Campainha) for Streamers.
-3. Stability: Removed React.StrictMode to fix video vanishing.
-4. CRITICAL: Run migration 'npx wrangler d1 migrations apply webapp-production --remote'!
+Version V102 (Payment & Visuals)
+1. Wallet: QR Code now displays INSIDE the modal (No more email dependency).
+2. Wallet: Added 'Pay with Card' button connecting to secure MP checkout.
+3. Video: Fixed Black Screen by forcing CSS import and Custom Grid Layout.
