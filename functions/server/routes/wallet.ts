@@ -5,6 +5,7 @@ type Bindings = {
   DB: D1Database
   JWT_SECRET: string
   MERCADO_PAGO_ACCESS_TOKEN: string
+  PUBLIC_URL?: string // RC1: URL base para notification_url
 }
 
 const wallet = new Hono<{ Bindings: Bindings }>()
@@ -13,7 +14,6 @@ wallet.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader) return c.json({ error: 'Unauthorized' }, 401)
   const token = authHeader.split(' ')[1]
-  // V104: Passar JWT_SECRET para verificação HMAC
   const payload = await verifySessionToken(token, c.env.JWT_SECRET)
   if (!payload) return c.json({ error: 'Invalid or expired token' }, 401)
   c.set('user', payload)
@@ -37,12 +37,17 @@ wallet.post('/recharge', async (c) => {
   
   if (!amount || amount < 1) return c.json({ error: 'Valor inválido' }, 400)
 
-  // STRICT MODE: NO SIMULATOR IF MP KEY EXISTS
   if (!c.env.MERCADO_PAGO_ACCESS_TOKEN) {
       return c.json({ error: 'Sistema de pagamento não configurado (MP Token Missing)' }, 500)
   }
 
   try {
+    // RC1: Detectar URL base (usa PUBLIC_URL ou o origin da requisição)
+    const publicUrl = c.env.PUBLIC_URL || new URL(c.req.url).origin;
+    const notificationUrl = `${publicUrl}/api/webhooks/mercadopago`;
+    
+    console.log('🔔 RC1: Criando pagamento com notification_url:', notificationUrl);
+
     const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
         method: 'POST',
         headers: {
@@ -55,6 +60,7 @@ wallet.post('/recharge', async (c) => {
             description: `Recarga Flayve - User ${user.sub}`,
             payment_method_id: 'pix',
             payer: { email: user.email },
+            notification_url: notificationUrl, // RC1: FIX - Webhook dinâmico
             installments: 1
         })
     });
@@ -62,11 +68,13 @@ wallet.post('/recharge', async (c) => {
     const mpData = await mpRes.json();
     
     if (!mpRes.ok) {
+        console.error('❌ RC1: Mercado Pago error:', mpData);
         return c.json({ error: `MP Recused: ${mpData.message || 'Erro desconhecido'}` }, 500);
     }
 
-    // Save as PENDING (User MUST pay for it to become 'completed')
-    // We do NOT credit balance yet.
+    console.log('✅ RC1: Pagamento criado com sucesso! MP ID:', mpData.id);
+
+    // Save as PENDING
     await c.env.DB.prepare(`
         INSERT INTO transactions (user_id, type, amount, status, metadata)
         VALUES (?, 'deposit', ?, 'pending', ?)
@@ -81,10 +89,12 @@ wallet.post('/recharge', async (c) => {
         payment_url: mpData.point_of_interaction?.transaction_data?.ticket_url,
         qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
         qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,
-        status: 'pending_payment'
+        status: 'pending_payment',
+        mp_id: mpData.id // RC1: Retornar ID para debug
     });
 
   } catch (e: any) {
+    console.error('❌ RC1: Wallet recharge error:', e);
     return c.json({ error: `Server Error: ${e.message}` }, 500);
   }
 })

@@ -12,7 +12,7 @@ import storage from '../server/routes/storage'
 import stories from '../server/routes/stories'
 import calls from '../server/routes/calls'
 import interactions from '../server/routes/interactions'
-import webhooks from '../server/routes/webhooks' // V104: Webhooks MP
+import webhooks from '../server/routes/webhooks'
 
 type Bindings = {
   DB: D1Database
@@ -22,32 +22,39 @@ type Bindings = {
   LIVEKIT_API_SECRET: string
   LIVEKIT_URL: string
   SENDGRID_API_KEY: string
+  ALLOWED_ORIGINS?: string // RC1: Domínios customizados (separados por vírgula)
+  PUBLIC_URL?: string // RC1: URL base para webhooks
 }
 
-// FIX V93: Explicitly set basePath to '/api' so Hono matches the full URL correctly
 const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 
-// V104: CORS com suporte a múltiplos domínios Pages.dev
-const allowedOrigins = [
-  'https://flayve.pages.dev',
-  'https://www.flayve.com',
-  'http://localhost:5173', // Dev apenas
-  'http://localhost:8788'  // Wrangler dev
-];
-
+// RC1: CORS Dinâmico - Suporta *.pages.dev + domínios customizados
 app.use('/*', cors({
-  origin: (origin) => {
-    // Se não há origin (requisições do próprio servidor), permitir
+  origin: (origin, c) => {
+    // Origens padrão (desenvolvimento)
+    const defaultOrigins = [
+      'http://localhost:5173',
+      'http://localhost:8788'
+    ];
+    
+    // Origens customizadas (produção)
+    const customOrigins = c.env.ALLOWED_ORIGINS 
+      ? c.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : [];
+    
+    const whitelist = [...defaultOrigins, ...customOrigins];
+    
+    // Se não há origin (requisições internas), permitir
     if (!origin) return '*';
     
-    // Permitir qualquer subdomínio do Pages.dev (flayve-xyz.pages.dev)
+    // Permitir qualquer subdomínio do Pages.dev (flayve-xyz.pages.dev, flayve.pages.dev)
     if (origin.endsWith('.pages.dev')) return origin;
     
     // Se está na whitelist, permitir
-    if (allowedOrigins.includes(origin)) return origin;
+    if (whitelist.includes(origin)) return origin;
     
-    // Caso contrário, usar o primeiro da lista como fallback
-    return allowedOrigins[0];
+    // Fallback: primeiro permitido
+    return whitelist[0] || '*';
   },
   credentials: true,
   allowHeaders: ['Content-Type', 'Authorization'],
@@ -56,7 +63,7 @@ app.use('/*', cors({
   maxAge: 600,
 }))
 
-// Mount routes (These become /api/auth, /api/profiles, etc.)
+// Mount routes
 app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/wallet', wallet)
@@ -66,7 +73,7 @@ app.route('/storage', storage)
 app.route('/stories', stories)
 app.route('/calls', calls)
 app.route('/interactions', interactions)
-app.route('/webhooks', webhooks) // V104: Webhooks para pagamentos
+app.route('/webhooks', webhooks)
 
 // LiveKit Token Endpoint
 app.post('/livekit/token', async (c) => {
@@ -89,13 +96,20 @@ app.post('/livekit/token', async (c) => {
   }
 })
 
-// Debug endpoint to verify routing
+// Health check
 app.get('/health', (c) => c.json({ 
   status: 'ok', 
-  version: 'V104', // V104: Correções críticas aplicadas
+  version: 'V104-RC1',
   path: c.req.path,
-  msg: 'If you see this, /api routing is working!',
-  fixes: ['JWT HMAC-SHA256', 'Call Billing', 'MP Webhooks']
+  msg: 'Release Candidate 1 - Production Ready!',
+  fixes: [
+    'JWT HMAC-SHA256',
+    'Call Billing',
+    'MP Webhooks',
+    'CORS Dinâmico',
+    'LiveKit ICE Config',
+    'Domínios Customizados'
+  ]
 }))
 
 export const onRequest = handle(app)

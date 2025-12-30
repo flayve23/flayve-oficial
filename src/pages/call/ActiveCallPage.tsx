@@ -18,12 +18,12 @@ export default function ActiveCallPage() {
   const navigate = useNavigate();
   const [token] = useState(state?.token);
   const [url] = useState(state?.url);
-  const [callId] = useState(state?.call_id); // V104: ID para cobrança
+  const [callId] = useState(state?.call_id);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
-  const hasEndedRef = useRef(false); // Prevenir múltiplas cobranças
+  const hasEndedRef = useRef(false);
 
-  // V104: Timer visual
+  // Timer visual
   useEffect(() => {
     const interval = setInterval(() => {
       setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
@@ -32,10 +32,10 @@ export default function ActiveCallPage() {
     return () => clearInterval(interval);
   }, [startTime]);
 
-  // V104: Finalizar chamada ao sair
+  // Finalizar chamada ao sair
   useEffect(() => {
     return () => {
-      if (hasEndedRef.current) return; // Já foi finalizada
+      if (hasEndedRef.current) return;
       
       const duration = Math.floor((Date.now() - startTime) / 1000);
       
@@ -52,7 +52,6 @@ export default function ActiveCallPage() {
             const minutes = res.data.duration_minutes;
             const charged = res.data.charged;
             
-            // Notificar usuário
             if (charged > 0) {
               alert(`Chamada encerrada!\n\nDuração: ${minutes} min\nValor cobrado: R$ ${charged.toFixed(2)}`);
             }
@@ -104,11 +103,24 @@ export default function ActiveCallPage() {
             data-lk-theme="default"
             style={{ height: '100vh', width: '100vw' }}
             onDisconnected={() => navigate('/dashboard')}
+            connectOptions={{
+              // RC1: ICE Configuration para NAT traversal
+              // LiveKit Cloud já fornece TURN servers automaticamente
+              // Mas forçamos aqui para garantir conectividade
+              rtcConfig: {
+                iceServers: [
+                  {
+                    urls: 'stun:stun.l.google.com:19302' // Google STUN (fallback)
+                  }
+                ],
+                iceTransportPolicy: 'all' // Permitir tanto STUN quanto TURN
+              }
+            }}
         >
             <ManualVideoGrid />
             <RoomAudioRenderer />
             
-            {/* V104: Timer de duração */}
+            {/* Timer de duração */}
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 px-4 py-2 rounded-full flex items-center gap-2">
                 <Clock className="w-4 h-4 text-red-500 animate-pulse" />
                 <span className="text-white font-mono text-lg">{formatTime(elapsedTime)}</span>
@@ -130,7 +142,6 @@ export default function ActiveCallPage() {
 }
 
 function ManualVideoGrid() {
-    // Force get Camera tracks
     const tracks = useTracks([Track.Source.Camera]);
 
     return (
@@ -141,12 +152,12 @@ function ManualVideoGrid() {
                         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-gray-600" />
                         <p>Aguardando vídeo...</p>
                         <p className="text-sm mt-2">(Verifique permissões da câmera)</p>
+                        <p className="text-xs mt-4 text-gray-400">RC1: ICE Config ativado</p>
                     </div>
                 </div>
             )}
             {tracks.map((trackRef: TrackReference) => (
                 <div key={trackRef.participant.identity} className="relative border border-dark-800 bg-dark-900">
-                    {/* The Raw Video Renderer */}
                     <VideoTrack trackRef={trackRef} className="w-full h-full object-cover" />
                     <div className="absolute bottom-2 left-2 bg-black/70 px-3 py-1 rounded text-white text-sm font-medium">
                         {trackRef.participant.name || 'Participante'} {trackRef.participant.isLocal && "🎥 (Você)"}
