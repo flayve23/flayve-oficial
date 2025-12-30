@@ -3,6 +3,7 @@ import { verifySessionToken } from '../auth-utils'
 
 type Bindings = {
   DB: D1Database
+  JWT_SECRET: string
   LIVEKIT_API_KEY: string
   LIVEKIT_API_SECRET: string
   LIVEKIT_URL: string
@@ -14,8 +15,9 @@ calls.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader) return c.json({ error: 'Unauthorized' }, 401)
   const token = authHeader.split(' ')[1]
-  const payload = await verifySessionToken(token)
-  if (!payload) return c.json({ error: 'Invalid token' }, 403)
+  // V104: Verificação segura com HMAC
+  const payload = await verifySessionToken(token, c.env.JWT_SECRET)
+  if (!payload) return c.json({ error: 'Invalid or expired token' }, 403)
   c.set('user', payload)
   await next()
 })
@@ -87,7 +89,8 @@ calls.post('/answer', async (c) => {
     status: 'accepted',
     token: await at.toJwt(),
     room: roomName,
-    url: c.env.LIVEKIT_URL
+    url: c.env.LIVEKIT_URL,
+    call_id: call_id // V104: Adicionar call_id para cobrança posterior
   })
 })
 
@@ -114,11 +117,173 @@ calls.get('/status/:id', async (c) => {
           status: 'accepted',
           token: await at.toJwt(),
           room: roomName,
-          url: c.env.LIVEKIT_URL
+          url: c.env.LIVEKIT_URL,
+          call_id: callId // V104: Adicionar call_id
       })
   }
 
   return c.json({ status: request.status })
 })
+
+// ============================================
+// V104: ENDPOINT PARA FINALIZAR E COBRAR CHAMADA
+// ============================================
+
+calls.post('/end', async (c) => {
+  const user = c.get('user') as any;
+  const { call_id, duration_seconds } = await c.req.json();
+  
+  if (!call_id || !duration_seconds) {
+    return c.json({ error: 'Dados incompletos' }, 400);
+  }
+  
+  // Buscar informações da chamada
+  const callRequest = await c.env.DB.prepare(`
+    SELECT 
+      cr.id,
+      cr.viewer_id,
+      cr.streamer_id,
+      cr.status,
+      p.price_per_minute,
+      u.username as streamer_name
+    FROM call_requests cr
+    JOIN profiles p ON cr.streamer_id = p.user_id
+    JOIN users u ON cr.streamer_id = u.id
+    WHERE cr.id = ?
+  `).bind(call_id).first() as any;
+  
+  if (!callRequest) {
+    return c.json({ error: 'Chamada não encontrada' }, 404);
+  }
+  
+  if (callRequest.status !== 'accepted') {
+    return c.json({ error: 'Chamada não estava ativa' }, 400);
+  }
+  
+  // Calcular custo (arredondar para cima)
+  const minutes = Math.ceil(duration_seconds / 60);
+  const totalCost = Number((callRequest.price_per_minute * minutes).toFixed(2));
+  
+  // Comissão da plataforma (20%)
+  const platformFee = Number((totalCost * 0.20).toFixed(2));
+  const streamerEarning = Number((totalCost - platformFee).toFixed(2));
+  
+  // Verificar saldo do viewer
+  const viewerBalance = await c.env.DB.prepare(`
+    SELECT 
+      COALESCE(SUM(CASE WHEN type IN ('deposit') THEN amount ELSE 0 END), 0) -
+      COALESCE(SUM(CASE WHEN type IN ('call_payment', 'withdrawal', 'tip') THEN amount ELSE 0 END), 0) as balance
+    FROM transactions 
+    WHERE user_id = ? AND status = 'completed'
+  `).bind(callRequest.viewer_id).first() as any;
+  
+  if (!viewerBalance || viewerBalance.balance < totalCost) {
+    // Saldo insuficiente - marcar como falha
+    await c.env.DB.prepare(`
+      UPDATE call_requests SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(call_id).run();
+    
+    return c.json({ 
+      error: 'Saldo insuficiente', 
+      required: totalCost,
+      available: viewerBalance?.balance || 0
+    }, 402);
+  }
+  
+  // === TRANSAÇÃO ATÔMICA ===
+  
+  // 1. Debitar Viewer
+  await c.env.DB.prepare(`
+    INSERT INTO transactions (user_id, type, amount, status, metadata)
+    VALUES (?, 'call_payment', ?, 'completed', ?)
+  `).bind(
+    callRequest.viewer_id,
+    totalCost,
+    JSON.stringify({
+      call_id,
+      duration_seconds,
+      duration_minutes: minutes,
+      price_per_minute: callRequest.price_per_minute,
+      streamer_id: callRequest.streamer_id,
+      streamer_name: callRequest.streamer_name,
+      timestamp: new Date().toISOString()
+    })
+  ).run();
+  
+  // 2. Creditar Streamer
+  await c.env.DB.prepare(`
+    INSERT INTO transactions (user_id, type, amount, status, metadata)
+    VALUES (?, 'call_earning', ?, 'completed', ?)
+  `).bind(
+    callRequest.streamer_id,
+    streamerEarning,
+    JSON.stringify({
+      call_id,
+      duration_seconds,
+      duration_minutes: minutes,
+      total_charged: totalCost,
+      platform_fee: platformFee,
+      viewer_id: callRequest.viewer_id,
+      timestamp: new Date().toISOString()
+    })
+  ).run();
+  
+  // 3. Atualizar status da chamada
+  await c.env.DB.prepare(`
+    UPDATE call_requests 
+    SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+    WHERE id = ?
+  `).bind(call_id).run();
+  
+  console.log(`✅ Chamada #${call_id} finalizada: R$${totalCost} (${minutes}min)`);
+  
+  return c.json({
+    success: true,
+    charged: totalCost,
+    duration_seconds,
+    duration_minutes: minutes,
+    price_per_minute: callRequest.price_per_minute,
+    streamer_earned: streamerEarning,
+    platform_fee: platformFee
+  });
+});
+
+// ============================================
+// V104: ENDPOINT PARA VERIFICAR SALDO PRÉ-CHAMADA
+// ============================================
+
+calls.get('/check-balance/:streamer_id', async (c) => {
+  const user = c.get('user') as any;
+  const streamerId = c.req.param('streamer_id');
+  
+  // Buscar preço do streamer
+  const profile = await c.env.DB.prepare(
+    'SELECT price_per_minute FROM profiles WHERE user_id = ?'
+  ).bind(streamerId).first() as any;
+  
+  if (!profile) {
+    return c.json({ error: 'Streamer não encontrado' }, 404);
+  }
+  
+  // Buscar saldo do viewer
+  const balance = await c.env.DB.prepare(`
+    SELECT 
+      COALESCE(SUM(CASE WHEN type IN ('deposit') THEN amount ELSE 0 END), 0) -
+      COALESCE(SUM(CASE WHEN type IN ('call_payment', 'withdrawal', 'tip') THEN amount ELSE 0 END), 0) as balance
+    FROM transactions 
+    WHERE user_id = ? AND status = 'completed'
+  `).bind(user.sub).first() as any;
+  
+  const currentBalance = balance?.balance || 0;
+  const pricePerMinute = profile.price_per_minute;
+  const estimatedMinutes = Math.floor(currentBalance / pricePerMinute);
+  
+  return c.json({
+    balance: currentBalance,
+    price_per_minute: pricePerMinute,
+    estimated_minutes: estimatedMinutes,
+    can_call: currentBalance >= pricePerMinute
+  });
+});
 
 export default calls

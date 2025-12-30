@@ -12,6 +12,7 @@ import storage from '../server/routes/storage'
 import stories from '../server/routes/stories'
 import calls from '../server/routes/calls'
 import interactions from '../server/routes/interactions'
+import webhooks from '../server/routes/webhooks' // V104: Webhooks MP
 
 type Bindings = {
   DB: D1Database
@@ -26,8 +27,24 @@ type Bindings = {
 // FIX V93: Explicitly set basePath to '/api' so Hono matches the full URL correctly
 const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
 
+// V104: CORS restrito para segurança
+const allowedOrigins = [
+  'https://flayve.pages.dev',
+  'https://www.flayve.com',
+  'http://localhost:5173', // Dev apenas
+  'http://localhost:8788'  // Wrangler dev
+];
+
 app.use('/*', cors({
-  origin: '*',
+  origin: (origin) => {
+    // Se não há origin (requisições do próprio servidor), permitir
+    if (!origin) return '*';
+    // Se está na whitelist, permitir
+    if (allowedOrigins.includes(origin)) return origin;
+    // Caso contrário, usar o primeiro da lista como fallback
+    return allowedOrigins[0];
+  },
+  credentials: true,
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['POST', 'GET', 'PUT', 'DELETE', 'OPTIONS'],
   exposeHeaders: ['Content-Length'],
@@ -44,6 +61,7 @@ app.route('/storage', storage)
 app.route('/stories', stories)
 app.route('/calls', calls)
 app.route('/interactions', interactions)
+app.route('/webhooks', webhooks) // V104: Webhooks para pagamentos
 
 // LiveKit Token Endpoint
 app.post('/livekit/token', async (c) => {
@@ -69,9 +87,10 @@ app.post('/livekit/token', async (c) => {
 // Debug endpoint to verify routing
 app.get('/health', (c) => c.json({ 
   status: 'ok', 
-  version: 'V93',
+  version: 'V104', // V104: Correções críticas aplicadas
   path: c.req.path,
-  msg: 'If you see this, /api routing is working!'
+  msg: 'If you see this, /api routing is working!',
+  fixes: ['JWT HMAC-SHA256', 'Call Billing', 'MP Webhooks']
 }))
 
 export const onRequest = handle(app)

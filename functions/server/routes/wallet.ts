@@ -3,6 +3,7 @@ import { verifySessionToken } from '../auth-utils'
 
 type Bindings = {
   DB: D1Database
+  JWT_SECRET: string
   MERCADO_PAGO_ACCESS_TOKEN: string
 }
 
@@ -12,8 +13,9 @@ wallet.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader) return c.json({ error: 'Unauthorized' }, 401)
   const token = authHeader.split(' ')[1]
-  const payload = await verifySessionToken(token)
-  if (!payload) return c.json({ error: 'Invalid token' }, 401)
+  // V104: Passar JWT_SECRET para verificação HMAC
+  const payload = await verifySessionToken(token, c.env.JWT_SECRET)
+  if (!payload) return c.json({ error: 'Invalid or expired token' }, 401)
   c.set('user', payload)
   await next()
 })

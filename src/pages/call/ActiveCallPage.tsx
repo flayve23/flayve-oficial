@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, PhoneOff } from 'lucide-react';
+import { Loader2, PhoneOff, Clock } from 'lucide-react';
 import '@livekit/components-styles';
 import { 
     LiveKitRoom, 
@@ -11,12 +11,63 @@ import {
     VideoTrack
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
+import api from '../../services/api';
 
 export default function ActiveCallPage() {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const [token, setToken] = useState(state?.token);
-  const [url, setUrl] = useState(state?.url);
+  const [token] = useState(state?.token);
+  const [url] = useState(state?.url);
+  const [callId] = useState(state?.call_id); // V104: ID para cobrança
+  const [startTime] = useState(Date.now());
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const hasEndedRef = useRef(false); // Prevenir múltiplas cobranças
+
+  // V104: Timer visual
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  // V104: Finalizar chamada ao sair
+  useEffect(() => {
+    return () => {
+      if (hasEndedRef.current) return; // Já foi finalizada
+      
+      const duration = Math.floor((Date.now() - startTime) / 1000);
+      
+      // Só cobrar se durou mais de 10 segundos E tem callId
+      if (duration > 10 && callId) {
+        hasEndedRef.current = true;
+        
+        api.post('/calls/end', { 
+          call_id: callId, 
+          duration_seconds: duration 
+        })
+          .then(res => {
+            console.log('✅ Chamada finalizada:', res.data);
+            const minutes = res.data.duration_minutes;
+            const charged = res.data.charged;
+            
+            // Notificar usuário
+            if (charged > 0) {
+              alert(`Chamada encerrada!\n\nDuração: ${minutes} min\nValor cobrado: R$ ${charged.toFixed(2)}`);
+            }
+          })
+          .catch(err => {
+            console.error('❌ Erro ao finalizar:', err);
+            if (err.response?.status === 402) {
+              alert('❌ Saldo insuficiente para pagar a chamada!');
+            } else {
+              alert('⚠️ Erro ao processar pagamento da chamada. Entre em contato com o suporte.');
+            }
+          });
+      }
+    };
+  }, [callId, startTime]);
 
   useEffect(() => {
     if (!token || !url) {
@@ -25,7 +76,23 @@ export default function ActiveCallPage() {
     }
   }, [token, url, navigate]);
 
-  if (!token) return <div className="h-screen bg-black flex items-center justify-center"><Loader2 className="animate-spin text-white" /></div>;
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleEndCall = () => {
+    if (confirm('Deseja encerrar a chamada?')) {
+      navigate('/dashboard');
+    }
+  };
+
+  if (!token) return (
+    <div className="h-screen bg-black flex items-center justify-center">
+      <Loader2 className="animate-spin text-white" />
+    </div>
+  );
 
   return (
     <div className="h-screen w-screen bg-black overflow-hidden">
@@ -41,9 +108,19 @@ export default function ActiveCallPage() {
             <ManualVideoGrid />
             <RoomAudioRenderer />
             
+            {/* V104: Timer de duração */}
+            <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 px-4 py-2 rounded-full flex items-center gap-2">
+                <Clock className="w-4 h-4 text-red-500 animate-pulse" />
+                <span className="text-white font-mono text-lg">{formatTime(elapsedTime)}</span>
+            </div>
+            
             <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 flex gap-4">
                 <ControlBar variation="minimal" controls={{ microphone: true, camera: true }} />
-                <button onClick={() => navigate('/dashboard')} className="bg-red-600 p-3 rounded-full text-white hover:bg-red-500">
+                <button 
+                  onClick={handleEndCall} 
+                  className="bg-red-600 p-3 rounded-full text-white hover:bg-red-500 transition-all transform hover:scale-110"
+                  title="Encerrar chamada"
+                >
                     <PhoneOff />
                 </button>
             </div>
@@ -60,15 +137,19 @@ function ManualVideoGrid() {
         <div className="grid grid-cols-1 md:grid-cols-2 h-full w-full bg-black">
             {tracks.length === 0 && (
                 <div className="flex items-center justify-center h-full text-gray-500">
-                    Aguardando vídeo... (Verifique permissões da câmera)
+                    <div className="text-center">
+                        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-gray-600" />
+                        <p>Aguardando vídeo...</p>
+                        <p className="text-sm mt-2">(Verifique permissões da câmera)</p>
+                    </div>
                 </div>
             )}
             {tracks.map((trackRef: TrackReference) => (
                 <div key={trackRef.participant.identity} className="relative border border-dark-800 bg-dark-900">
                     {/* The Raw Video Renderer */}
                     <VideoTrack trackRef={trackRef} className="w-full h-full object-cover" />
-                    <div className="absolute bottom-2 left-2 bg-black/50 px-2 rounded text-white text-sm">
-                        {trackRef.participant.name} {trackRef.participant.isLocal && "(Você)"}
+                    <div className="absolute bottom-2 left-2 bg-black/70 px-3 py-1 rounded text-white text-sm font-medium">
+                        {trackRef.participant.name || 'Participante'} {trackRef.participant.isLocal && "🎥 (Você)"}
                     </div>
                 </div>
             ))}

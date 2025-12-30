@@ -1,4 +1,24 @@
-Version V103 (Strict Mode)
-1. Storage: Using Base64 Uploads to bypass binary issues.
-2. Wallet: NO SIMULATOR. Requires real MP Key. Check Logs if fails.
-3. Video: Manual Rendering (Raw VideoTrack) to fix black screen.
+Version V104 (Security & Billing Update)
+✅ CORREÇÕES APLICADAS:
+1. JWT: HMAC-SHA256 real implementado (segurança crítica)
+2. Billing: Sistema de cobrança de chamadas funcionando
+3. Webhooks: Mercado Pago automático implementado
+4. Frontend: Timer de chamada + cobrança ao finalizar
+5. API: Endpoint /calls/end e /calls/check-balance
+
+⚠️ BREAKING CHANGES:
+- Todos os tokens JWT antigos são INVÁLIDOS
+- Usuários precisarão fazer login novamente
+
+🔒 SEGURANÇA:
+- Tokens não podem mais ser forjados
+- Verificação HMAC em todas as rotas protegidas
+- Expiração de 7 dias implementada corretamente
+
+💸 PAGAMENTOS:
+- Chamadas agora cobram corretamente
+- Webhook MP credita saldo automaticamente
+- Validação de saldo antes de aceitar chamada
+
+📅 Data: 2025-12-30
+🔧 Branch: hotfix/critical-security-fixes-v104
